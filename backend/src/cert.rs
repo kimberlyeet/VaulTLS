@@ -1,8 +1,8 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use anyhow::Ok;
 use openssl::asn1::Asn1Time;
 use openssl::bn::BigNum;
+use openssl::error::ErrorStack;
 use openssl::hash::MessageDigest;
 use openssl::pkcs12::Pkcs12;
 use openssl::pkey::PKey;
@@ -15,7 +15,7 @@ use crate::Certificate;
 
 pub fn create_ca(
     ca_name: &str
-) -> Result<Certificate, anyhow::Error> {
+) -> Result<Certificate, ErrorStack> {
     // Generate a private key
     let rsa = Rsa::generate(2048)?;
     let private_key = PKey::from_rsa(rsa)?;
@@ -63,8 +63,8 @@ pub fn create_ca(
     Ok(Certificate{
         created_on: created_on_unix,
         valid_until: valid_until_unix,
-        cert: certificate.to_der().unwrap(),
-        key: private_key.private_key_to_der().unwrap(),
+        cert: certificate.to_der()?,
+        key: private_key.private_key_to_der()?,
         ..Default::default()
     })
 }
@@ -73,13 +73,13 @@ pub fn create_user_cert(
     ca: &Certificate,
     name: &str,
     validity_in_years: u64,
-) -> Result<Certificate, anyhow::Error> {
+) -> Result<Certificate, ErrorStack> {
         let ca_cert = X509::from_der(&ca.cert)?;
         let ca_key = PKey::private_key_from_der(&ca.key)?;
 
         // Generate user's private key
-        let rsa = Rsa::generate(4096).unwrap();
-        let user_key = PKey::from_rsa(rsa).unwrap();
+        let rsa = Rsa::generate(4096)?;
+        let user_key = PKey::from_rsa(rsa)?;
     
         // Create the user's X509 name (subject)
         let mut name_builder = X509NameBuilder::new()?;
@@ -129,15 +129,15 @@ pub fn create_user_cert(
             name: name.to_string(),
             created_on: created_on_unix,
             valid_until: valid_until_unix,
-            pkcs12: pkcs12.to_der().unwrap(),
+            pkcs12: pkcs12.to_der()?,
             ..Default::default()
         })
 }
 
-fn get_timestamp(from_now_in_years: u64) -> Result<(i64, Asn1Time), anyhow::Error> {
+fn get_timestamp(from_now_in_years: u64) -> Result<(i64, Asn1Time), ErrorStack> {
     let time = SystemTime::now() + std::time::Duration::from_secs(60 * 60 * 24 * 365 * from_now_in_years);
     let time_unix = time.duration_since(UNIX_EPOCH).unwrap().as_millis() as i64;
-    let time_openssl = openssl::asn1::Asn1Time::from_unix(time_unix)?;
+    let time_openssl = Asn1Time::from_unix(time_unix)?;
 
     Ok((time_unix, time_openssl))
 }
