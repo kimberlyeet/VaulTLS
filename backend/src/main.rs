@@ -8,8 +8,8 @@ use rocket::serde::json::Json;
 use rocket::State;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use rocket::tokio::sync::Mutex;
 use rocket_cors::{AllowedOrigins, CorsOptions};
-use tokio::sync::Mutex;
 
 mod db;
 mod cert;
@@ -63,19 +63,19 @@ impl<'r> rocket::response::Responder<'r, 'static> for ApiError {
     }
 }
 
-#[get("/")]
+#[get("/api")]
 fn index() -> &'static str {
     "<h1>mTLS Certificates API</h1>"
 }
 
-#[get("/certificates")]
+#[get("/api/certificates")]
 async fn get_certificates(state: &State<AppState>) -> Result<Json<Vec<Certificate>>, ApiError> {
     let db = state.db.lock().await;
     let certificates = db.get_all_user_cert().map_err(ApiError::Database)?;
     Ok(Json(certificates))
 }
 
-#[post("/certificates", format = "json", data = "<payload>")]
+#[post("/api/certificates", format = "json", data = "<payload>")]
 async fn create_user_certificate(
     state: &State<AppState>,
     payload: Json<CreateCertificateRequest>,
@@ -92,7 +92,7 @@ async fn create_user_certificate(
     Ok(Json(user_cert))
 }
 
-#[get("/certificates/<id>/download")]
+#[get("/api/certificates/<id>/download")]
 async fn download_certificate(
     state: &State<AppState>,
     id: String
@@ -104,7 +104,7 @@ async fn download_certificate(
     }
 }
 
-#[delete("/certificates/<id>")]
+#[delete("/api/certificates/<id>")]
 async fn delete_user_cert(
     state: &State<AppState>,
     id: String
@@ -115,7 +115,7 @@ async fn delete_user_cert(
     Ok(())
 }
 
-#[get("/settings")]
+#[get("/api/settings")]
 async fn fetch_settings(
     state: &State<AppState>
 ) -> Result<Json<Settings>, ApiError> {
@@ -123,7 +123,7 @@ async fn fetch_settings(
     Ok(Json(settings.clone()))
 }
 
-#[put("/settings", format = "json", data = "<payload>")]
+#[put("/api/settings", format = "json", data = "<payload>")]
 async fn update_settings(
     state: &State<AppState>,
     payload: Json<Settings>

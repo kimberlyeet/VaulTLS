@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+const API_URL = `${window.location.origin}/api`;
 
 class ApiClient {
     private client: AxiosInstance;
@@ -54,4 +55,4 @@ class ApiClient {
     }
 }
 
-export default new ApiClient('http://127.0.0.1:3737/'); // Your backend base URL
+export default new ApiClient(API_URL); // Your backend base URL

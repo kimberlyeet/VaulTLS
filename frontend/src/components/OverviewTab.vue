@@ -73,6 +73,7 @@
 <script lang="ts">
 import { computed, defineComponent, ref, onMounted } from 'vue';
 import { useCertificateStore } from '@/stores/certificates';
+import type {Certificate} from "@/types/Certificate.ts";
 
 export default defineComponent({
   name: 'OverviewTab',
@@ -86,14 +87,14 @@ export default defineComponent({
 
     // Local state for the modal
     const isModalVisible = ref(false);
-    const certToDelete = ref(null);
+    const certToDelete = ref<Certificate | null>(null);
 
     // Fetch certificates when the component is mounted
     onMounted(() => {
       certificateStore.fetchCertificates();
     });
 
-    const confirmDeletion = (cert: any) => {
+    const confirmDeletion = (cert: Certificate) => {
       certToDelete.value = cert;
       isModalVisible.value = true;
     };
