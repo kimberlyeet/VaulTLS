@@ -11,10 +11,30 @@ use openssl::stack::Stack;
 use openssl::x509::{X509NameBuilder, X509};
 use openssl::x509::extension::{BasicConstraints, KeyUsage, SubjectKeyIdentifier};
 use openssl::x509::X509Builder;
-use crate::Certificate;
+
+#[derive(Default, Clone, rocket::serde::Serialize)]
+pub struct Certificate {
+    pub(crate) id: i64,
+    pub(crate) name: String,
+    pub(crate) created_on: i64,
+    pub(crate) valid_until: i64,
+    #[serde(skip)]
+    pub(crate) pkcs12: Vec<u8>,
+    #[serde(skip)]
+    pub(crate) cert: Vec<u8>,
+    #[serde(skip)]
+    pub(crate) key: Vec<u8>,
+}
+
+impl Certificate {
+    pub fn set_id(&mut self, id: i64) -> () {
+        self.id = id;
+    }
+}
 
 pub fn create_ca(
-    ca_name: &str
+    ca_name: &str,
+    ca_validity_in_years: u64
 ) -> Result<Certificate, ErrorStack> {
     // Generate a private key
     let rsa = Rsa::generate(2048)?;
@@ -35,12 +55,12 @@ pub fn create_ca(
 
     // Set the certificate validity
     let (created_on_unix, created_on_openssl) = get_timestamp(0)?;
-    let (valid_until_unix, valid_until_openssl) = get_timestamp(10)?;
+    let (valid_until_unix, valid_until_openssl) = get_timestamp(ca_validity_in_years)?;
     builder.set_not_before(&created_on_openssl)?;
     builder.set_not_after(&valid_until_openssl)?;
 
     // Add basic constraints: This cert is a CA
-    let basic_constraints = BasicConstraints::new().ca().build().unwrap();
+    let basic_constraints = BasicConstraints::new().ca().build()?;
     builder.append_extension(basic_constraints)?;
 
     // Add key usage: Digital Signature and Key Cert Sign

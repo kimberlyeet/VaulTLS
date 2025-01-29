@@ -75,7 +75,7 @@ impl CertificateDB {
         let mut stmt = self.connection
             .prepare("SELECT id, name, created_on, valid_until, pkcs12 FROM user_certificates")?;
 
-        Ok(stmt
+        let x = Ok(stmt
             .query_map([], |row| {
                 Ok(Certificate {
                     id: row.get(0)?,
@@ -85,11 +85,10 @@ impl CertificateDB {
                     pkcs12: row.get(4)?,
                     ..Default::default()
                 })
-            })
-            .unwrap()
+            })?
             .map(|res| res.unwrap())
             .collect()
-        )
+        ); x
     }
 
     pub fn get_user_pkcs12(&self, id: i64) -> Result<Vec<u8>, rusqlite::Error> {

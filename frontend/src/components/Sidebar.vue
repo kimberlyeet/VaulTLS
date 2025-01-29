@@ -8,8 +8,8 @@
           <a
               href="#"
               class="nav-link d-flex align-items-center gap-2"
-              :class="{ active: currentTab === 'Overview' }"
-              @click.prevent="$emit('change-tab', 'Overview')"
+              :class="{ active: activeRouteName === 'Overview' }"
+              @click.prevent="goToRoute('Overview')"
           >
             <i class="bi bi-house-door-fill"></i>
             Overview
@@ -19,8 +19,8 @@
           <a
               href="#"
               class="nav-link d-flex align-items-center gap-2"
-              :class="{ active: currentTab === 'Generate' }"
-              @click.prevent="$emit('change-tab', 'Generate')"
+              :class="{ active: activeRouteName === 'Generate' }"
+              @click.prevent="goToRoute('Generate')"
           >
             <i class="bi bi-tools"></i>
             Generate
@@ -30,8 +30,8 @@
           <a
               href="#"
               class="nav-link d-flex align-items-center gap-2"
-              :class="{ active: currentTab === 'Settings' }"
-              @click.prevent="$emit('change-tab', 'Settings')"
+              :class="{ active: activeRouteName === 'Settings' }"
+              @click.prevent="goToRoute('Settings')"
           >
             <i class="bi bi-gear-fill"></i>
             Settings
@@ -43,19 +43,29 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, type PropType } from 'vue';
+import { defineComponent, computed } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import ProfileCard from './ProfileCard.vue';
 
 export default defineComponent({
   name: 'Sidebar',
-  components: {
-    ProfileCard,
-  },
-  props: {
-    currentTab: {
-      type: String as PropType<string>,
-      required: true,
-    },
+  components: { ProfileCard },
+  setup() {
+    const route = useRoute();
+    const router = useRouter();
+
+    // Reactive computed property for the current route name
+    const activeRouteName = computed(() => route.name);
+
+    // A helper method to navigate to a given route name
+    const goToRoute = (name: string) => {
+      router.push({ name });
+    };
+
+    return {
+      activeRouteName,
+      goToRoute,
+    };
   },
 });
 </script>
@@ -65,7 +75,6 @@ export default defineComponent({
   color: #000;
   text-decoration: none;
 }
-
 .nav-link.active {
   font-weight: bold;
   background-color: #e7e7e7;

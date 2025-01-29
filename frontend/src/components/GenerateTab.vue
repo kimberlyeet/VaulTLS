@@ -39,6 +39,7 @@
 import { defineComponent, reactive } from 'vue';
 import { useCertificateStore } from '@/stores/certificates';
 import type {CertificateRequirements} from "@/types/CertificateRequirements.ts";
+import router from "@/router/router.ts";
 
 export default defineComponent({
   name: 'GenerateTab',
@@ -58,6 +59,7 @@ export default defineComponent({
         await certificateStore.createCertificate(certReq);
         certReq.name = '';
         certReq.validity_in_years = 1;
+        await router.push("Overview")
       } catch (error) {
         console.error('Error creating certificate:', error);
       }

@@ -6,8 +6,8 @@ use rocket::http::{ContentType, Status, Method};
 use rocket::response::status::Custom;
 use rocket::serde::json::Json;
 use rocket::State;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use rocket::serde::{Deserialize, Serialize};
 use rocket::tokio::sync::Mutex;
 use rocket_cors::{AllowedOrigins, CorsOptions};
 
@@ -15,29 +15,19 @@ mod db;
 mod cert;
 mod settings;
 mod notification;
+mod auth;
 
 use cert::create_ca;
 use db::CertificateDB;
 use settings::Settings;
+use crate::auth::{verify_password, Authenticated};
+use crate::cert::Certificate;
+use crate::settings::FrontendSettings;
 
 #[derive(Clone)]
 struct AppState {
     db: Arc<Mutex<CertificateDB>>,
     settings: Arc<Mutex<Settings>>,
-}
-
-#[derive(Default, Clone, Serialize)]
-struct Certificate {
-    id: i64,
-    name: String,
-    created_on: i64,
-    valid_until: i64,
-    #[serde(skip)]
-    pkcs12: Vec<u8>,
-    #[serde(skip)]
-    cert: Vec<u8>,
-    #[serde(skip)]
-    key: Vec<u8>,
 }
 
 #[derive(Deserialize)]
@@ -50,6 +40,7 @@ struct CreateCertificateRequest {
 enum ApiError {
     Database(rusqlite::Error),
     OpenSsl(openssl::error::ErrorStack),
+    Unauthorized(Option<String>),
     Other(String),
 }
 
@@ -58,9 +49,40 @@ impl<'r> rocket::response::Responder<'r, 'static> for ApiError {
         match self {
             ApiError::Database(e) => Custom(Status::InternalServerError, e.to_string()).respond_to(req),
             ApiError::OpenSsl(e) => Custom(Status::InternalServerError, e.to_string()).respond_to(req),
+            ApiError::Unauthorized(e) => Custom(Status::Unauthorized, e.unwrap_or(Default::default()).to_string()).respond_to(req),
             ApiError::Other(e) => Custom(Status::InternalServerError, e).respond_to(req),
         }
     }
+}
+
+impl From<rusqlite::Error> for ApiError {
+    fn from(error: rusqlite::Error) -> Self {
+        ApiError::Database(error)
+    }
+}
+
+impl From<openssl::error::ErrorStack> for ApiError {
+    fn from(error: openssl::error::ErrorStack) -> Self {
+        ApiError::OpenSsl(error)
+    }
+}
+
+#[derive(Deserialize)]
+struct SetupRequest {
+    name: String,
+    ca_name: String,
+    ca_validity_in_years: u64,
+    password: String,
+}
+
+#[derive(Deserialize)]
+struct LoginRequest {
+    password: String,
+}
+
+#[derive(Serialize)]
+struct LoginResponse {
+    token: String,
 }
 
 #[get("/api")]
@@ -69,9 +91,12 @@ fn index() -> &'static str {
 }
 
 #[get("/api/certificates")]
-async fn get_certificates(state: &State<AppState>) -> Result<Json<Vec<Certificate>>, ApiError> {
+async fn get_certificates(
+    state: &State<AppState>,
+    _authenticated: Authenticated
+) -> Result<Json<Vec<Certificate>>, ApiError> {
     let db = state.db.lock().await;
-    let certificates = db.get_all_user_cert().map_err(ApiError::Database)?;
+    let certificates = db.get_all_user_cert()?;
     Ok(Json(certificates))
 }
 
@@ -79,15 +104,15 @@ async fn get_certificates(state: &State<AppState>) -> Result<Json<Vec<Certificat
 async fn create_user_certificate(
     state: &State<AppState>,
     payload: Json<CreateCertificateRequest>,
+    _authenticated: Authenticated
 ) -> Result<Json<Certificate>, ApiError> {
     let db = state.db.lock().await;
 
-    let ca = db.get_current_ca().map_err(ApiError::Database)?;
-    let mut user_cert = cert::create_user_cert(&ca, &payload.name, payload.validity_in_years.unwrap_or(1))
-        .map_err(ApiError::OpenSsl)?;
+    let ca = db.get_current_ca()?;
+    let mut user_cert = cert::create_user_cert(&ca, &payload.name, payload.validity_in_years.unwrap_or(1))?;
 
-    let id = db.insert_user_cert(user_cert.clone()).map_err(ApiError::Database)?;
-    user_cert.id = id;
+    let id = db.insert_user_cert(user_cert.clone())?;
+    user_cert.set_id(id);
 
     Ok(Json(user_cert))
 }
@@ -95,42 +120,81 @@ async fn create_user_certificate(
 #[get("/api/certificates/<id>/download")]
 async fn download_certificate(
     state: &State<AppState>,
-    id: String
+    id: i64,
+    _authenticated: Authenticated
 ) -> Result<(Status, (ContentType, Vec<u8>)), ApiError> {
     let db = state.db.lock().await;
-    match db.get_user_pkcs12(id.parse::<i64>().unwrap()).map_err(ApiError::Database) {
-        Ok(pkcs12) => Ok((Status::Ok, (ContentType::new("application", "pkcs12") ,pkcs12))),
-        Err(_) => Err(ApiError::Other("Certificate not found".to_string())),
-    }
+    let pkcs12 = db.get_user_pkcs12(id)?;
+    Ok((Status::Ok, (ContentType::new("application", "pkcs12"), pkcs12)))
 }
 
 #[delete("/api/certificates/<id>")]
 async fn delete_user_cert(
     state: &State<AppState>,
-    id: String
+    id: i64,
+    _authenticated: Authenticated
 ) -> Result<(), ApiError> {
     let db = state.db.lock().await;
-    db.delete_user_cert(id.parse::<i64>().unwrap())
-        .map_err(ApiError::Database)?;
+    db.delete_user_cert(id)?;
     Ok(())
 }
 
 #[get("/api/settings")]
 async fn fetch_settings(
-    state: &State<AppState>
-) -> Result<Json<Settings>, ApiError> {
+    state: &State<AppState>,
+    _authenticated: Authenticated
+) -> Result<Json<FrontendSettings>, ApiError> {
     let settings = state.settings.lock().await;
-    Ok(Json(settings.clone()))
+    let frontend_settings = FrontendSettings(settings.clone());
+    Ok(Json(frontend_settings))
 }
 
 #[put("/api/settings", format = "json", data = "<payload>")]
 async fn update_settings(
     state: &State<AppState>,
-    payload: Json<Settings>
+    payload: Json<Settings>,
+    _authenticated: Authenticated
 ) -> Result<(), ApiError> {
     let mut settings = state.settings.lock().await;
-    settings.set_settings(&payload).map_err(|e| ApiError::Other(e.to_string()))?;
+    settings.set_settings(&payload)?;
     Ok(())
+}
+
+#[get("/api/is_setup")]
+async fn is_setup(
+    state: &State<AppState>
+) -> Result<Json<bool>, ApiError> {
+    let settings = state.settings.lock().await;
+    Ok(Json(settings.is_setup()))
+}
+
+#[post("/api/setup", format = "json", data = "<setup_req>")]
+async fn setup(
+    state: &State<AppState>,
+    setup_req: Json<SetupRequest>
+) -> Result<(), ApiError> {
+    let mut settings = state.settings.lock().await;
+    if settings.is_setup() { return Err(ApiError::Unauthorized(None)) }
+
+    settings.set_username(&setup_req.name)?;
+    settings.set_password(&setup_req.password)?;
+
+    let db = state.db.lock().await;
+    let ca = create_ca(&setup_req.ca_name, setup_req.ca_validity_in_years)?;
+    db.insert_ca(ca)?;
+
+    Ok(())
+}
+
+#[post("/api/auth/login", format = "json", data = "<login_req>")]
+async fn login(
+    state: &State<AppState>,
+    login_req: Json<LoginRequest>
+) -> Result<Json<LoginResponse>, ApiError> {
+    let settings = state.settings.lock().await;
+    let token = verify_password(&settings, &login_req.password)?;
+
+    Ok(Json(LoginResponse { token }))
 }
 
 #[launch]
@@ -140,8 +204,6 @@ fn rocket() -> _ {
     let db = CertificateDB::new(db_path).expect("Failed opening SQLite database.");
     if !db_initialized {
         db.initialize_db().expect("Failed initializing database");
-        let ca = create_ca("Hymalia CA").expect("Failed creating CA");
-        db.insert_ca(ca).expect("Failed inserting CA");
     }
 
     let settings = Settings::new(None).unwrap();
@@ -174,7 +236,10 @@ fn rocket() -> _ {
                 download_certificate,
                 delete_user_cert,
                 fetch_settings,
-                update_settings
+                update_settings,
+                is_setup,
+                setup,
+                login
             ],
         )
         .attach(cors.to_cors().unwrap())

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import {useAuthStore} from "@/stores/auth.ts";
 const API_URL = `${window.location.origin}/api`;
 
 class ApiClient {
@@ -12,11 +13,43 @@ class ApiClient {
                 'Content-Type': 'application/json',
             },
         });
+
+        // Request interceptor to add JWT to the headers
+        this.client.interceptors.request.use(
+            (config) => {
+                const authStore = useAuthStore();
+                const token = authStore.token; // Retrieve JWT from Pinia store
+
+                if (token) {
+                    config.headers.Authorization = `Bearer ${token}`;
+                }
+
+                return config;
+            },
+            (error) => {
+                return Promise.reject(error);
+            }
+        );
+
+        // Response interceptor to handle token expiration
+        this.client.interceptors.response.use(
+            (response) => response,
+            async (error) => {
+                if (error.response && error.response.status === 401) {
+                    const authStore = useAuthStore();
+                    authStore.logout();
+                    window.location.href = '/login';
+                }
+                return Promise.reject(error);
+            }
+        );
     }
 
     async get<T>(url: string, params: Record<string, any> = {}): Promise<T> {
         try {
+            console.log(url);
             const response: AxiosResponse<T> = await this.client.get(url, { params });
+            console.log(response);
             return response.data;
         } catch (error) {
             console.error(`GET ${url} failed:`, error);
@@ -55,4 +88,4 @@ class ApiClient {
     }
 }
 
-export default new ApiClient(API_URL); // Your backend base URL
+export default new ApiClient(API_URL);
