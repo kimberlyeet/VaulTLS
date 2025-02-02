@@ -2,7 +2,7 @@ export interface SetupReq {
     name: string,
     ca_name: string,
     ca_validity_in_years: number,
-    password: string;
+    password: string | null;
 }
 
 export interface LoginReq {
@@ -11,4 +11,10 @@ export interface LoginReq {
 
 export interface LoginResponse {
     token: string;
+}
+
+export interface IsSetupResponse {
+    setup: boolean,
+    password: boolean,
+    oidc: string;
 }

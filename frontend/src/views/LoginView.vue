@@ -2,7 +2,8 @@
   <div class="container d-flex justify-content-center align-items-center vh-100">
     <div class="card p-4 shadow" style="max-width: 400px; width: 100%;">
       <h1 class="text-center mb-4">Login</h1>
-      <form @submit.prevent="submitLogin">
+
+      <form v-if="authStore.password_auth" @submit.prevent="submitLogin">
         <div class="mb-3">
           <label for="password" class="form-label">Password</label>
           <input
@@ -19,6 +20,16 @@
           {{ loginError }}
         </p>
       </form>
+
+      <p v-else class="text-center text-warning">
+        Password authentication is not set up.
+      </p>
+
+      <div v-if="authStore.oidc_url" class="mt-3">
+        <button @click="redirectToOIDC" class="btn btn-outline-primary w-100">
+          <i class="bi bi-box-arrow-in-right me-2"></i> Login with OAuth
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -41,8 +52,13 @@ export default defineComponent({
       if (!success) {
         loginError.value = 'Login failed. Please try again.';
       } else {
-        // On success, redirect to the main page
         await router.push("Overview");
+      }
+    };
+
+    const redirectToOIDC = () => {
+      if (authStore.oidc_url) {
+        window.location.href = `${window.location.origin}/api/auth/oidc/login`
       }
     };
 
@@ -50,6 +66,8 @@ export default defineComponent({
       password,
       loginError,
       submitLogin,
+      authStore,
+      redirectToOIDC,
     };
   },
 });

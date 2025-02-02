@@ -1,6 +1,5 @@
-import { createRouter, createWebHistory } from 'vue-router';
+import {createRouter, createWebHistory} from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
-import { is_setup } from '@/api/auth';
 
 import LoginView from '@/views/LoginView.vue';
 import FirstSetupView from '@/views/FirstSetupView.vue';
@@ -51,14 +50,19 @@ const router = createRouter({
             // A guard to check if the app is set up and user is authenticated
             beforeEnter: async (to, from, next) => {
                 const authStore = useAuthStore();
+
                 try {
-                    const is_backend_setup = await is_setup();
-                    console.log("Is setup: " + is_backend_setup);
-                    if (!is_backend_setup) {
+                    const isSetup = await authStore.is_setup();
+                    if (!isSetup) {
                         return next({ name: 'FirstSetup' });
                     }
+                    let urlParams = new URLSearchParams(window.location.search);
+                    console.log(urlParams.get('oidc'));
+                    if (urlParams.has('oidc')) {
+                        console.log("trying oidc login");
+                        await authStore.login(undefined)
+                    }
 
-                    console.log("Is authenticated: " + authStore.isAuthenticated);
                     if (!authStore.isAuthenticated) {
                         return next({ name: 'Login' });
                     }

@@ -1,5 +1,5 @@
-use std::{fs, fs::OpenOptions, io::BufWriter};
-use std::str::FromStr;
+use std::{env, fs, fs::OpenOptions, io::BufWriter};
+use std::env::VarError;
 use argon2::{Argon2, PasswordHasher};
 use argon2::password_hash::{PasswordHashString, SaltString};
 use argon2::password_hash::rand_core::{OsRng, RngCore};
@@ -33,15 +33,9 @@ impl Serialize for FrontendSettings {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Common {
-    username: String
-}
-
-impl Default for Common {
-    fn default() -> Self {
-        Self{ username: String::from_str("admin").unwrap()}
-    }
+    username: Option<String>
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -56,7 +50,22 @@ pub struct Mail {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Auth {
     jwt_key: String,
-    password_hash: Option<String>
+    password_hash: Option<String>,
+    oidc: OIDC
+}
+
+#[derive(Serialize, Deserialize, Clone, Default, Debug)]
+pub struct OIDC {
+    pub id: String,
+    pub secret: String,
+    pub auth_url: String,
+    pub callback_url: String
+}
+
+impl Default for Auth {
+    fn default() -> Self {
+        Self{ jwt_key: generate_jwt_key(), password_hash: None, oidc: Default::default()}
+    }
 }
 
 fn generate_jwt_key() -> String {
@@ -65,11 +74,19 @@ fn generate_jwt_key() -> String {
     base64::encode_block(&secret)
 }
 
-impl Default for Auth {
-    fn default() -> Self {
-        Self{ jwt_key: generate_jwt_key(), password_hash: Default::default() }
-    }
+fn fill_oidc_config() -> OIDC {
+    let get_env = || -> Result<OIDC, VarError> {
+        let id = env::var("OIDC_ID")?;
+        let secret = env::var("OIDC_SECRET")?;
+        let auth_url = env::var("OIDC_AUTH_URL")?;
+        let callback_url = env::var("OIDC_CALLBACK_URL")?;
+        Ok(OIDC{ id, secret, auth_url, callback_url })
+    };
+
+    get_env().unwrap_or_else(|_| OIDC::default())
 }
+
+
 
 const FILE_PATH: &str = "settings.json";
 
@@ -77,7 +94,8 @@ impl Settings {
     pub fn new(file_path: Option<&str>) -> Result<Self, ApiError> {
         let settings_string = fs::read_to_string(file_path.unwrap_or(FILE_PATH))
             .unwrap_or("{}".to_string());
-        let settings: Self = serde_json::from_str(&settings_string).unwrap_or(Default::default());
+        let mut settings: Self = serde_json::from_str(&settings_string).unwrap_or(Default::default());
+        settings.auth.oidc = fill_oidc_config();
         settings.save(None)?;
         Ok(settings)
     }
@@ -121,11 +139,19 @@ impl Settings {
     }
 
     pub fn is_setup(&self) -> bool {
+        self.common.username.is_some()
+    }
+
+    pub fn has_password(&self) -> bool {
         self.auth.password_hash.is_some()
     }
     
     pub fn set_username(&mut self, username: &String) -> Result<(), ApiError> {
-        self.common.username = username.clone();
+        self.common.username = Some(username.clone());
         self.save(None).map_err(|_| { ApiError::Other("Failed to save username".to_string()) } )
+    }
+
+    pub fn get_oidc(&self) -> &OIDC {
+        &self.auth.oidc
     }
 }

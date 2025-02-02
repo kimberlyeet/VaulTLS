@@ -1,11 +1,11 @@
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use crate::settings::Settings;
+use crate::{ApiError, AppState};
 use argon2::{Argon2, PasswordVerifier};
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use rocket::http::Status;
 use rocket::request::{FromRequest, Outcome, Request};
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
-use crate::{ApiError, AppState};
-use crate::settings::Settings;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub struct Authenticated;
 
@@ -54,7 +54,11 @@ pub fn verify_password(settings: &Settings, password: &str) -> Result<String, Ap
         return Err(ApiError::Unauthorized(Some("Invalid password".to_string())));
     }
 
-    let expires = SystemTime::now() + Duration::from_secs(60*60*24);
+    generate_token(&jwt_key)
+}
+
+pub fn generate_token(jwt_key: &Vec<u8>) -> Result<String, ApiError> {
+    let expires = SystemTime::now() + Duration::from_secs(60 * 60 * 24);
     let expires_unix = expires.duration_since(UNIX_EPOCH).unwrap().as_secs() as usize;
     let claims = Claims {
         exp: expires_unix,

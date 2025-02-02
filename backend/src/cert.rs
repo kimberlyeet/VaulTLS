@@ -1,3 +1,4 @@
+use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use openssl::asn1::Asn1Time;
@@ -11,6 +12,7 @@ use openssl::stack::Stack;
 use openssl::x509::{X509NameBuilder, X509};
 use openssl::x509::extension::{BasicConstraints, KeyUsage, SubjectKeyIdentifier};
 use openssl::x509::X509Builder;
+use crate::ApiError;
 
 #[derive(Default, Clone, rocket::serde::Serialize)]
 pub struct Certificate {
@@ -160,4 +162,11 @@ fn get_timestamp(from_now_in_years: u64) -> Result<(i64, Asn1Time), ErrorStack> 
     let time_openssl = Asn1Time::from_unix(time_unix)?;
 
     Ok((time_unix, time_openssl))
+}
+
+pub fn save_ca(ca: &Certificate) -> Result<(), ApiError> {
+    let cert = X509::from_der(&ca.cert)?;
+    let pem = cert.to_pem()?;
+    fs::write("ca.cert", pem).map_err(|e| ApiError::Other(e.to_string()))?;
+    Ok(())
 }

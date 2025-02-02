@@ -47,9 +47,7 @@ class ApiClient {
 
     async get<T>(url: string, params: Record<string, any> = {}): Promise<T> {
         try {
-            console.log(url);
             const response: AxiosResponse<T> = await this.client.get(url, { params });
-            console.log(response);
             return response.data;
         } catch (error) {
             console.error(`GET ${url} failed:`, error);

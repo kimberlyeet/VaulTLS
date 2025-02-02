@@ -2,6 +2,12 @@
   <div class="container d-flex justify-content-center align-items-center vh-100">
     <div class="card p-4 shadow" style="max-width: 400px; width: 100%;">
       <h1 class="text-center mb-4">Hello</h1>
+
+      <!-- 🔹 Show notice if OIDC is enabled -->
+      <div v-if="authStore.oidc_url" class="alert alert-info text-center">
+        OAuth (OIDC) is configured. You can still set a password for local login if desired.
+      </div>
+
       <form @submit.prevent="setupPassword">
         <div class="mb-3">
           <label for="username" class="form-label">Username</label>
@@ -13,6 +19,7 @@
               required
           />
         </div>
+
         <div class="mb-3">
           <label for="ca_name" class="form-label">Name of CA entity</label>
           <input
@@ -23,6 +30,7 @@
               required
           />
         </div>
+
         <div class="mb-3">
           <label for="ca_validity_in_years" class="form-label">Validity of CA in years</label>
           <input
@@ -33,18 +41,27 @@
               required
           />
         </div>
+
+        <!-- 🔹 Password field is always available, but not required if OIDC is enabled -->
         <div class="mb-3">
-          <label for="password" class="form-label">Password</label>
+          <label for="password" class="form-label">Password (Optional)</label>
           <input
               id="password"
               type="password"
               v-model="password"
               class="form-control"
               autocomplete="new-password"
-              required
+              :required="!authStore.oidc_url"
           />
+          <small class="text-muted">
+            {{ authStore.oidc_url ? "You can leave this empty if using OAuth (OIDC)." : "Required for local login." }}
+          </small>
         </div>
-        <button type="submit" class="btn btn-primary w-100">Set Password</button>
+
+        <button type="submit" class="btn btn-primary w-100">
+          Complete Setup
+        </button>
+
         <p v-if="errorMessage" class="text-danger mt-3">
           {{ errorMessage }}
         </p>
@@ -57,10 +74,12 @@
 import { defineComponent, ref } from 'vue';
 import router from '../router/router';
 import { setup } from "@/api/auth.ts";
+import { useAuthStore } from '@/stores/auth';
 
 export default defineComponent({
   name: 'FirstSetupView',
   setup() {
+    const authStore = useAuthStore();
     const username = ref('');
     const ca_name = ref('');
     const ca_validity_in_years = ref(10);
@@ -73,15 +92,16 @@ export default defineComponent({
           name: username.value,
           ca_name: ca_name.value,
           ca_validity_in_years: ca_validity_in_years.value,
-          password: password.value
+          password: password.value || null
         });
         await router.replace({ name: 'Login' });
       } catch (err) {
-        errorMessage.value = 'Failed to set password.';
+        errorMessage.value = 'Failed to set up.';
       }
     };
 
     return {
+      authStore,
       username,
       ca_name,
       ca_validity_in_years,
