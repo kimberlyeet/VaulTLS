@@ -1,4 +1,4 @@
-import type {SetupReq, LoginResponse, IsSetupResponse} from "@/types/Login.ts";
+import type {SetupReq, LoginResponse, IsSetupResponse, ChangePasswordReq} from "@/types/Login.ts";
 import ApiClient from "@/api/ApiClient.ts";
 
 export const is_setup = async (): Promise<IsSetupResponse> => {
@@ -14,6 +14,6 @@ export const login = async (loginReq: { password: string | undefined }): Promise
     return await ApiClient.post<LoginResponse>('/auth/login', loginReq);
 };
 
-export const oidc_login = async (): Promise<LoginResponse> => {
-    return await ApiClient.get<LoginResponse>('/auth/oidc/login');
+export const change_password = async (changePasswordReq: ChangePasswordReq): Promise<void> => {
+    return await ApiClient.post<void>('/auth/change_password', changePasswordReq);
 };

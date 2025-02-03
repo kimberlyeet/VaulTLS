@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
-import {is_setup, login} from "@/api/auth.ts";
+import {change_password, is_setup, login} from "@/api/auth.ts";
+import type {ChangePasswordReq} from "@/types/Login.ts";
 
 export const useAuthStore = defineStore('auth', {
     state: () => ({
@@ -30,7 +31,18 @@ export const useAuthStore = defineStore('auth', {
 
                 return isSetupResponse.setup;
             } catch (err) {
-                this.error = 'Failed to login.';
+                this.error = 'Failed to get setup state.';
+                console.error(err);
+                return false;
+            }
+        },
+        async change_password(changePasswordReq: ChangePasswordReq) {
+            try {
+                await change_password(changePasswordReq);
+                this.password_auth = true;
+                return true;
+            } catch (err) {
+                this.error = 'Failed to change password.';
                 console.error(err);
                 return false;
             }

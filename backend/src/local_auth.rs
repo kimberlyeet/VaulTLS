@@ -1,4 +1,3 @@
-use crate::settings::Settings;
 use crate::{ApiError, AppState};
 use argon2::{Argon2, PasswordVerifier};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
@@ -6,6 +5,7 @@ use rocket::http::Status;
 use rocket::request::{FromRequest, Outcome, Request};
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use argon2::password_hash::PasswordHashString;
 
 pub struct Authenticated;
 
@@ -41,20 +41,11 @@ impl<'r> FromRequest<'r> for Authenticated {
     }
 }
 
-pub fn verify_password(settings: &Settings, password: &str) -> Result<String, ApiError> {
-    let jwt_key = settings.get_jwt_key();
-    let password_hash_string = settings.get_password_hash()
-        .map_err(|_| ApiError::Unauthorized(Some("Password has not been set".to_string())))?;
+pub fn verify_password(password_hash_string: &PasswordHashString, password: &str) -> Result<(), ApiError> {
     let password_hash = password_hash_string.password_hash();
 
     let argon2 = Argon2::default();
-    let is_valid = argon2.verify_password(password.as_bytes(), &password_hash).is_ok();
-
-    if !is_valid {
-        return Err(ApiError::Unauthorized(Some("Invalid password".to_string())));
-    }
-
-    generate_token(&jwt_key)
+    argon2.verify_password(password.as_bytes(), &password_hash).map_err(|_| ApiError::Unauthorized(Some("Passwords do not match.".to_string())))
 }
 
 pub fn generate_token(jwt_key: &Vec<u8>) -> Result<String, ApiError> {

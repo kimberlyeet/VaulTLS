@@ -57,7 +57,6 @@ impl OidcAuth {
             .set_pkce_challenge(pkce_challenge)
             .url();
 
-        println!("CSRF: {:?}", csrf_token.secret().clone());
         let session_id = csrf_token.secret().clone();
         self.oidc_state.insert(session_id.clone(), (pkce_verifier, nonce));
 

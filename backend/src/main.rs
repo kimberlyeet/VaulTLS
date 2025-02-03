@@ -70,6 +70,12 @@ impl From<openssl::error::ErrorStack> for ApiError {
     }
 }
 
+impl From<argon2::password_hash::Error> for ApiError {
+    fn from(error: argon2::password_hash::Error) -> Self {
+        ApiError::Unauthorized(Some(error.to_string()))
+    }
+}
+
 impl From<anyhow::Error> for ApiError {
     fn from(error: anyhow::Error) -> Self {
         ApiError::Other(error.to_string())
@@ -99,6 +105,12 @@ struct LoginRequest {
 #[derive(Serialize)]
 struct LoginResponse {
     token: String,
+}
+
+#[derive(Deserialize)]
+struct ChangePasswordRequest {
+    old_password: Option<String>,
+    new_password: String,
 }
 
 #[derive(FromForm)]
@@ -226,7 +238,6 @@ async fn login(
     jar: &CookieJar<'_>,
     login_req_opt: Json<LoginRequest>
 ) -> Result<Json<LoginResponse>, ApiError> {
-
     if let Some(cookie) = jar.get_private("auth_token") {
         let token = cookie.value().to_string();
         return Ok(Json(LoginResponse { token }));
@@ -234,12 +245,31 @@ async fn login(
 
     if let Some(password) = &login_req_opt.password {
         let settings = state.settings.lock().await;
-        let token = verify_password(&settings, password)?;
+        verify_password(&settings.get_password_hash()?, password)?;
+        let token = generate_token(&settings.get_jwt_key())?;
 
         return Ok(Json(LoginResponse { token }));
     }
 
     Err(ApiError::Unauthorized(None))
+}
+
+#[post("/api/auth/change_password", data = "<change_pass_req>")]
+async fn change_password(
+    state: &State<AppState>,
+    change_pass_req: Json<ChangePasswordRequest>,
+    _authenticated: Authenticated
+) -> Result<(), ApiError> {
+    let mut settings = state.settings.lock().await;
+
+    if let Ok(password_hash) = settings.get_password_hash() {
+        match &change_pass_req.old_password {
+            Some(old_password) => verify_password(&password_hash, old_password)?,
+            None => return Err(ApiError::Unauthorized(Some("Password is required".to_string())))
+        }
+    }
+
+    settings.set_password(&change_pass_req.new_password)
 }
 
 #[get("/api/auth/oidc/login")]
@@ -332,6 +362,7 @@ async fn rocket() -> _ {
                 is_setup,
                 setup,
                 login,
+                change_password,
                 oidc_login,
                 oidc_callback
             ],

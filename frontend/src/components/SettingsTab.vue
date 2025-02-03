@@ -63,24 +63,91 @@
       />
     </div>
 
+    <!-- Change Password Section -->
+    <h2>Security</h2>
+    <button class="btn btn-warning mt-3" @click="showPasswordDialog = true">
+      Change Password
+    </button>
+
+    <!-- Change Password Dialog -->
+    <div v-if="showPasswordDialog" class="password-dialog">
+      <div class="dialog-content">
+        <h3>Change Password</h3>
+        <div v-if="authStore.password_auth" class="mb-3">
+          <label for="old-password" class="form-label">Old Password</label>
+          <input
+              id="old-password"
+              v-model="changePasswordReq.oldPassword"
+              type="password"
+              class="form-control"
+          />
+        </div>
+        <div class="mb-3">
+          <label for="new-password" class="form-label">New Password</label>
+          <input
+              id="new-password"
+              v-model="changePasswordReq.newPassword"
+              type="password"
+              class="form-control"
+          />
+        </div>
+        <div class="mb-3">
+          <label for="confirm-password" class="form-label">Confirm New Password</label>
+          <input
+              id="confirm-password"
+              v-model="confirmPassword"
+              type="password"
+              class="form-control"
+          />
+        </div>
+        <button
+            class="btn btn-primary"
+            :disabled="!canChangePassword"
+            @click="changePassword"
+        >
+          Change Password
+        </button>
+        <button class="btn btn-secondary" @click="showPasswordDialog = false">Cancel</button>
+      </div>
+    </div>
+
     <!-- Save Button -->
     <button class="btn btn-primary mt-3" @click="saveSettings">Save</button>
   </div>
 </template>
 
 <script lang="ts">
-import {computed, defineComponent, onMounted} from 'vue';
-import { useSettingseStore } from '@/stores/settings'; // Update the path as needed
+import { computed, defineComponent, ref, onMounted } from 'vue';
+import { useSettingseStore } from '@/stores/settings';
+import { useAuthStore } from '@/stores/auth';
 
 export default defineComponent({
   name: 'SettingsTab',
-
   setup() {
     const settingsStore = useSettingseStore();
+    const authStore = useAuthStore();
 
     const settings = computed(() => settingsStore.settings);
+    const showPasswordDialog = ref(false);
+    const changePasswordReq = ref({ oldPassword: '', newPassword: '' });
+    const confirmPassword = ref('');
 
-    // Fetch settings when the component is mounted
+    const canChangePassword = computed(() =>
+        changePasswordReq.value.newPassword === confirmPassword.value &&
+        changePasswordReq.value.newPassword.length > 0
+    );
+
+    const changePassword = async () => {
+      const req = {
+        old_password: authStore.password_auth ? changePasswordReq.value.oldPassword : null,
+        new_password: changePasswordReq.value.newPassword,
+      };
+      await authStore.change_password(req);
+      showPasswordDialog.value = false;
+      changePasswordReq.value = { oldPassword: '', newPassword: '' };
+      confirmPassword.value = '';
+    };
+
     onMounted(async () => {
       await settingsStore.fetchSettings();
     });
@@ -88,7 +155,31 @@ export default defineComponent({
     return {
       settings,
       saveSettings: settingsStore.saveSettings,
+      showPasswordDialog,
+      changePasswordReq,
+      confirmPassword,
+      canChangePassword,
+      changePassword,
+      authStore,
     };
   },
 });
 </script>
+
+<style scoped>
+.password-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 20px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+.dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+</style>
