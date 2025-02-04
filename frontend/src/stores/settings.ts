@@ -6,6 +6,9 @@ import {
 } from '@/api/settings'; // Adjust the path to match your project structure
 
 const defaultSettings: Settings = {
+    common: {
+        username: '',
+    },
     mail: {
         address: '',
         username: undefined,
@@ -13,9 +16,12 @@ const defaultSettings: Settings = {
         from: '',
         to: '',
     },
-    common: {
-        username: '',
-    },
+    oidc: {
+        id: '',
+        secret: '',
+        auth_url: '',
+        callback_url: '',
+    }
 };
 
 export const useSettingseStore = defineStore('settings', {

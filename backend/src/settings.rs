@@ -17,7 +17,9 @@ pub struct Settings {
     #[serde(default)]
     common: Common,
     #[serde(default)]
-    auth: Auth
+    auth: Auth,
+    #[serde(default)]
+    oidc: OIDC
 }
 pub struct FrontendSettings(pub Settings);
 
@@ -29,6 +31,7 @@ impl Serialize for FrontendSettings {
         let mut state = serializer.serialize_struct("Settings", 1)?;
         state.serialize_field("common", &self.0.common)?;
         state.serialize_field("mail", &self.0.mail)?;
+        state.serialize_field("oidc", &self.0.oidc)?;
         state.end()
     }
 }
@@ -50,11 +53,10 @@ pub struct Mail {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Auth {
     jwt_key: String,
-    password_hash: Option<String>,
-    oidc: OIDC
+    password_hash: Option<String>
 }
 
-#[derive(Serialize, Deserialize, Clone, Default, Debug)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct OIDC {
     pub id: String,
     pub secret: String,
@@ -64,7 +66,7 @@ pub struct OIDC {
 
 impl Default for Auth {
     fn default() -> Self {
-        Self{ jwt_key: generate_jwt_key(), password_hash: None, oidc: Default::default()}
+        Self{ jwt_key: generate_jwt_key(), password_hash: None}
     }
 }
 
@@ -95,7 +97,7 @@ impl Settings {
         let settings_string = fs::read_to_string(file_path.unwrap_or(FILE_PATH))
             .unwrap_or("{}".to_string());
         let mut settings: Self = serde_json::from_str(&settings_string).unwrap_or(Default::default());
-        settings.auth.oidc = fill_oidc_config();
+        settings.oidc = fill_oidc_config();
         settings.save(None)?;
         Ok(settings)
     }
@@ -114,7 +116,9 @@ impl Settings {
     pub fn set_settings(&mut self, settings: &Settings) -> Result<(), ApiError> {
         self.common = settings.common.clone();
         self.mail = settings.mail.clone();
-        self.save(None).map_err(|_| { ApiError::Other("Failed to save username".to_string()) } )
+        self.oidc = settings.oidc.clone();
+
+        self.save(None)
     }
 
     pub fn get_jwt_key(&self) -> Vec<u8> {
@@ -152,6 +156,6 @@ impl Settings {
     }
 
     pub fn get_oidc(&self) -> &OIDC {
-        &self.auth.oidc
+        &self.oidc
     }
 }

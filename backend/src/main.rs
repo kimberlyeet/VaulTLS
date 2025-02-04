@@ -190,7 +190,14 @@ async fn update_settings(
     _authenticated: Authenticated
 ) -> Result<(), ApiError> {
     let mut settings = state.settings.lock().await;
+    let mut oidc = state.oidc.lock().await;
+
     settings.set_settings(&payload)?;
+    
+    if let Some(oidc) = &mut *oidc {
+        oidc.update_config(settings.get_oidc()).await?;
+    }
+
     Ok(())
 }
 

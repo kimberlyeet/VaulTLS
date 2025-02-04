@@ -63,6 +63,45 @@
       />
     </div>
 
+    <!-- OIDC Section -->
+    <h2>OIDC</h2>
+    <div class="mb-3">
+      <label for="oidc-id" class="form-label">Client ID</label>
+      <input
+          id="oidc-id"
+          v-model="settings.oidc.id"
+          type="text"
+          class="form-control"
+      />
+    </div>
+    <div class="mb-3">
+      <label for="oidc-secret" class="form-label">Client Secret</label>
+      <input
+          id="oidc-secret"
+          v-model="settings.oidc.secret"
+          type="password"
+          class="form-control"
+      />
+    </div>
+    <div class="mb-3">
+      <label for="oidc-auth-url" class="form-label">Authorization URL</label>
+      <input
+          id="oidc-auth-url"
+          v-model="settings.oidc.auth_url"
+          type="text"
+          class="form-control"
+      />
+    </div>
+    <div class="mb-3">
+      <label for="oidc-callback-url" class="form-label">Callback URL</label>
+      <input
+          id="oidc-callback-url"
+          v-model="settings.oidc.callback_url"
+          type="text"
+          class="form-control"
+      />
+    </div>
+
     <!-- Change Password Section -->
     <h2>Security</h2>
     <button class="btn btn-warning mt-3" @click="showPasswordDialog = true">
