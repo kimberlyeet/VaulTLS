@@ -9,10 +9,10 @@ COPY frontend/ ./
 RUN npm run build
 
 # Stage 2: Build the Rust backend
-FROM rust:1.84 as backend-builder
+FROM rust:1.84 AS backend-builder
 
 WORKDIR /app/backend
-COPY --exclude=backend/target backend/ ./
+COPY backend/ ./
 RUN --mount=type=cache,target=/app/backend/target \
     --mount=type=cache,target=/usr/local/cargo/git/db \
     --mount=type=cache,target=/usr/local/cargo/registry/ \
