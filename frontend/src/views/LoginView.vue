@@ -5,6 +5,16 @@
 
       <form v-if="authStore.password_auth" @submit.prevent="submitLogin">
         <div class="mb-3">
+          <label for="email" class="form-label">E-Mail</label>
+          <input
+              id="email"
+              type="email"
+              v-model="email"
+              class="form-control"
+              required
+          />
+        </div>
+        <div class="mb-3">
           <label for="password" class="form-label">Password</label>
           <input
               id="password"
@@ -42,13 +52,14 @@ import router from "@/router/router.ts";
 export default defineComponent({
   name: 'LoginView',
   setup() {
+    const email = ref('');
     const password = ref('');
     const loginError = ref('');
     const authStore = useAuthStore();
 
     const submitLogin = async () => {
       loginError.value = '';
-      const success = await authStore.login(password.value);
+      const success = await authStore.login(email.value, password.value);
       if (!success) {
         loginError.value = 'Login failed. Please try again.';
       } else {
@@ -63,6 +74,7 @@ export default defineComponent({
     };
 
     return {
+      email,
       password,
       loginError,
       submitLogin,

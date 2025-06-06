@@ -4,7 +4,7 @@ import {
     fetchCertificates,
     downloadCertificate,
     createCertificate,
-    handleDeleteCertificate,
+    deleteCertificate,
 } from '../api/certificates';
 import type {CertificateRequirements} from "@/types/CertificateRequirements.ts"; // Adjust the path to match your project structure
 
@@ -68,7 +68,7 @@ export const useCertificateStore = defineStore('certificate', {
             this.loading = true;
             this.error = null;
             try {
-                await handleDeleteCertificate(id); // This handles API deletion and fetch internally
+                await deleteCertificate(id); // This handles API deletion and fetch internally
                 this.certificates = await fetchCertificates(); // Refresh the local state
             } catch (err) {
                 this.error = 'Failed to delete the certificate.';

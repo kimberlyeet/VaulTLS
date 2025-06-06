@@ -33,20 +33,7 @@ impl CertificateDB {
         )?;
 
         self.connection.execute(
-            "CREATE TABLE user_certificates (
-                id INTEGER PRIMARY KEY,
-                name TEXT NOT NULL,
-                created_on INTEGER NOT NULL,
-                valid_until INTEGER NOT NULL,
-                pkcs12 BLOB,
-                FOREIGN KEY(ca_id) REFERENCES ca_certificates(id) ON DELETE CASCADE,
-                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-            )",
-            [],
-        )?;
-
-        self.connection.execute(
-            "CREATE TABLE users (\
+            "CREATE TABLE users (
                 id INTEGER PRIMARY KEY,
                 name TEXT NOT NULL,
                 email TEXT NOT NULL,
@@ -55,6 +42,21 @@ impl CertificateDB {
                 role INTEGER NOT NULL
             )",
             []
+        )?;
+
+        self.connection.execute(
+            "CREATE TABLE user_certificates (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                created_on INTEGER NOT NULL,
+                valid_until INTEGER NOT NULL,
+                pkcs12 BLOB,
+                ca_id INTEGER,
+                user_id INTEGER,
+                FOREIGN KEY(ca_id) REFERENCES ca_certificates(id) ON DELETE CASCADE,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+            )",
+            [],
         )?;
 
         Ok(())
@@ -123,7 +125,7 @@ impl CertificateDB {
 
     pub fn insert_user_cert(&self, cert: Certificate, user_id: i64) -> Result<i64, rusqlite::Error> {
         self.connection.execute(
-            "INSERT INTO user_certificates (name, created_on, valid_until, pkcs12, ca_id, user_id) VALUES (?1, ?2, ?3, ?4)",
+            "INSERT INTO user_certificates (name, created_on, valid_until, pkcs12, ca_id, user_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![cert.name, cert.created_on, cert.valid_until, cert.pkcs12, cert.ca_id, user_id],
         )?;
 
@@ -158,10 +160,33 @@ impl CertificateDB {
         Ok(())
     }
 
-    pub fn get_user(&self, id: i64) -> Result<User, ApiError> {
+    pub fn get_user(&self, id: i64) -> Result<User, rusqlite::Error> {
         self.connection.query_row(
             "SELECT id, name, email, password_hash, oidc_id, role FROM users WHERE id=?1",
             params![id],
+            |row| {
+                let hash: Option<String> = row.get(3)?;
+                let hash_string = match hash {
+                    Some(hash) => PasswordHashString::from_str(hash.as_str()).ok(),
+                    None => None
+                };
+                let role_number: u8 = row.get(5)?;
+                Ok(User {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    email: row.get(2)?,
+                    password_hash: hash_string,
+                    oidc_id: row.get(4)?,
+                    role: UserRole::try_from(role_number).unwrap(),
+                })
+            }
+        )
+    }
+
+    pub fn get_user_by_email(&self, email: &str) -> Result<User, ApiError> {
+        self.connection.query_row(
+            "SELECT id, name, email, password_hash, oidc_id, role FROM users WHERE email=?1",
+            params![email],
             |row| {
                 let hash: String = row.get(3)?;
                 let role_number: u8 = row.get(5)?;

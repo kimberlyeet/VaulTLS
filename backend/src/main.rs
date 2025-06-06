@@ -216,14 +216,16 @@ async fn login(
     }
 
     if let Some(password) = &login_req_opt.password {
-        let settings = state.settings.lock().await;
-        let db = state.db.lock().await;
-        let user: User = db.get_user(login_req_opt.user_id)?;
-        if let Some(password_hash) = user.password_hash {
-            verify_password(&password_hash, password)?;
-            let token = generate_token(&settings.get_jwt_key(), user.id, user.role)?;
+        if let Some(email) = &login_req_opt.email {
+            let settings = state.settings.lock().await;
+            let db = state.db.lock().await;
+            let user: User = db.get_user_by_email(email)?;
+            if let Some(password_hash) = user.password_hash {
+                verify_password(&password_hash, password)?;
+                let token = generate_token(&settings.get_jwt_key(), user.id, user.role)?;
 
-            return Ok(Json(LoginResponse { token }));
+                return Ok(Json(LoginResponse { token }));
+            }
         }
     }
 
@@ -296,6 +298,17 @@ async fn oidc_callback(
         }
         None => { Err(ApiError::Unauthorized(Some("OIDC not configured".to_string()))) },
     }
+}
+
+#[get("/api/auth/me")]
+async fn get_current_user(
+    state: &State<AppState>,
+    authentication: Authenticated
+) -> Result<Json<User>, ApiError> {
+    let db = state.db.lock().await;
+    println!("{:?}", authentication.claims);
+    let user = db.get_user(authentication.claims.id)?;
+    Ok(Json(user))
 }
 
 #[get("/api/users")]
@@ -396,6 +409,7 @@ async fn rocket() -> _ {
                 change_password,
                 oidc_login,
                 oidc_callback,
+                get_current_user,
                 get_users,
                 create_user,
                 delete_user

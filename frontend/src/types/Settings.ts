@@ -1,6 +1,6 @@
 export interface Settings {
     common: {
-        username: string;
+        password_enabled: boolean;
     },
     mail: {
         address: string,

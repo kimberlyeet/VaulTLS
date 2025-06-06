@@ -1,5 +1,6 @@
 export interface SetupReq {
     name: string,
+    email: string,
     ca_name: string,
     ca_validity_in_years: number,
     password: string | null;

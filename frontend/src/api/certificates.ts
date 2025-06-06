@@ -15,7 +15,6 @@ export const createCertificate = async (certReq: CertificateRequirements): Promi
     return cert.id;
 };
 
-export const handleDeleteCertificate = async (id: number): Promise<void> => {
+export const deleteCertificate = async (id: number): Promise<void> => {
     await ApiClient.delete<void>(`/certificates/${id}`);
-    await fetchCertificates();
 };

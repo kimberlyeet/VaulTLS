@@ -6,8 +6,8 @@ import FirstSetupView from '@/views/FirstSetupView.vue';
 
 import MainLayout from '@/layouts/MainLayout.vue';
 import OverviewTab from '@/components/OverviewTab.vue';
-import GenerateTab from '@/components/GenerateTab.vue';
 import SettingsTab from '@/components/SettingsTab.vue';
+import UserTab from "@/components/UserTab.vue";
 
 const router = createRouter({
     history: createWebHistory(),
@@ -37,9 +37,9 @@ const router = createRouter({
                     component: OverviewTab,
                 },
                 {
-                    path: 'generate',
-                    name: 'Generate',
-                    component: GenerateTab,
+                    path: 'users',
+                    name: 'Users',
+                    component: UserTab,
                 },
                 {
                     path: 'settings',
@@ -60,7 +60,7 @@ const router = createRouter({
                     console.log(urlParams.get('oidc'));
                     if (urlParams.has('oidc')) {
                         console.log("trying oidc login");
-                        await authStore.login(undefined)
+                        await authStore.login(undefined, undefined)
                     }
 
                     if (!authStore.isAuthenticated) {

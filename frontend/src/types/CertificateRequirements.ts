@@ -1,4 +1,5 @@
 export interface CertificateRequirements {
-    name: string;           // Certificate name
-    validity_in_years: number        // Validity in years
+    cert_name: string;
+    user_id: number;
+    validity_in_years: number;
 }

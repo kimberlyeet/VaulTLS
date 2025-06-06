@@ -23,8 +23,8 @@ pub struct SetupRequest {
 
 #[derive(Deserialize)]
 pub struct LoginRequest {
-    pub password: Option<String>,
-    pub user_id: i64
+    pub email: Option<String>,
+    pub password: Option<String>
 }
 
 #[derive(Serialize)]
@@ -80,10 +80,11 @@ impl<'r> Responder<'r, 'static> for DownloadResponse {
     }
 }
 
+
 #[derive(Deserialize)]
 pub struct CreateUserRequest {
     pub user_name: String,
-    pub user_email: i64,
+    pub user_email: String,
     pub password: Option<String>,
     pub role: UserRole
 }

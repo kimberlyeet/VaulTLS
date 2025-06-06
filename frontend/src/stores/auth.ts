@@ -1,19 +1,22 @@
 import { defineStore } from 'pinia';
-import {change_password, is_setup, login} from "@/api/auth.ts";
+import {change_password, current_user, is_setup, login} from "@/api/auth.ts";
 import type {ChangePasswordReq} from "@/types/Login.ts";
+import type {User} from "@/types/User.ts";
 
 export const useAuthStore = defineStore('auth', {
     state: () => ({
         token: '' as string | null,
         isAuthenticated: false as boolean,
         password_auth: false as boolean,
+        current_user: null as User | null,
         oidc_url: null as string | null,
         error: null as string | null,
     }),
     actions: {
-        async login(password: string | undefined) {
+        async login(email: string | undefined, password: string | undefined) {
             try {
-                this.token = (await login({password})).token;
+                this.token = (await login({email, password})).token;
+                this.current_user = (await current_user());
                 this.isAuthenticated = true;
 
                 return true;

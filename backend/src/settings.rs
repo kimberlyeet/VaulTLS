@@ -111,6 +111,7 @@ impl Settings {
     }
 
     pub fn set_settings(&mut self, settings: &Settings) -> Result<(), ApiError> {
+        self.common = settings.common.clone();
         self.mail = settings.mail.clone();
         self.oidc = settings.oidc.clone();
 

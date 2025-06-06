@@ -5,14 +5,17 @@
 
     <!-- Common Section -->
     <h2>Common</h2>
-    <div class="mb-3">
-      <label for="common-username" class="form-label">Username</label>
+    <div class="mb-3 form-check form-switch">
       <input
-          id="common-username"
-          v-model="settings.common.username"
-          type="text"
-          class="form-control"
+          type="checkbox"
+          class="form-check-input"
+          id="common-password-enabled"
+          v-model="settings.common.password_enabled"
+          role="switch"
       />
+      <label class="form-check-label" for="common-password-enabled">
+        Password Login enabled
+      </label>
     </div>
 
     <!-- Mail Section -->

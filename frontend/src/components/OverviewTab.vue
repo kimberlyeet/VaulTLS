@@ -2,6 +2,11 @@
   <div>
     <h1>Certificates</h1>
     <hr />
+    <div v-if="isAdmin" class="mb-3">
+      <button class="btn btn-primary" @click="showGenerateModal">
+        Generate New Certificate
+      </button>
+    </div>
     <table class="table table-bordered">
       <thead>
       <tr>
@@ -20,7 +25,7 @@
           <button class="btn btn-primary btn-sm" @click="downloadCertificate(cert.id)">
             Download
           </button>
-          <button class="btn btn-danger btn-sm ms-2" @click="confirmDeletion(cert)">
+          <button v-if="isAdmin" class="btn btn-danger btn-sm ms-2" @click="confirmDeletion(cert)">
             Delete
           </button>
         </td>
@@ -31,9 +36,76 @@
     <div v-if="loading" class="text-center mt-3">Loading certificates...</div>
     <div v-if="error" class="alert alert-danger mt-3">{{ error }}</div>
 
-    <!-- Disclaimer Modal -->
+    <!-- Generate Certificate Modal -->
     <div
-        v-if="isModalVisible"
+        v-if="isGenerateModalVisible"
+        class="modal show d-block"
+        tabindex="-1"
+        style="background: rgba(0, 0, 0, 0.5)"
+    >
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Generate New Certificate</h5>
+            <button type="button" class="btn-close" @click="closeGenerateModal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label for="certName" class="form-label">Certificate Name</label>
+              <input
+                  id="certName"
+                  v-model="certReq.cert_name"
+                  type="text"
+                  class="form-control"
+                  placeholder="Enter certificate name"
+              />
+            </div>
+            <div class="mb-3">
+              <label for="userId" class="form-label">User</label>
+              <select
+                  id="userId"
+                  v-model="certReq.user_id"
+                  class="form-control"
+              >
+                <option value="" disabled>Select a user</option>
+                <option v-for="user in users" :key="user.id" :value="user.id">
+                  {{ user.name }}
+                </option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label for="validity" class="form-label">Validity (years)</label>
+              <input
+                  id="validity"
+                  v-model.number="certReq.validity_in_years"
+                  type="number"
+                  class="form-control"
+                  min="1"
+                  placeholder="Enter validity period"
+              />
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="closeGenerateModal">
+              Cancel
+            </button>
+            <button
+                type="button"
+                class="btn btn-primary"
+                :disabled="loading"
+                @click="createCertificate"
+            >
+              <span v-if="loading">Creating...</span>
+              <span v-else>Create Certificate</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div
+        v-if="isDeleteModalVisible"
         class="modal show d-block"
         tabindex="-1"
         style="background: rgba(0, 0, 0, 0.5)"
@@ -42,7 +114,7 @@
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">Delete Certificate</h5>
-            <button type="button" class="btn-close" @click="closeModal"></button>
+            <button type="button" class="btn-close" @click="closeDeleteModal"></button>
           </div>
           <div class="modal-body">
             <p>
@@ -57,7 +129,7 @@
             </p>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" @click="closeModal">
+            <button type="button" class="btn btn-secondary" @click="closeDeleteModal">
               Cancel
             </button>
             <button type="button" class="btn btn-danger" @click="deleteCertificate">
@@ -71,37 +143,74 @@
 </template>
 
 <script lang="ts">
-import { computed, defineComponent, ref, onMounted } from 'vue';
+import { computed, defineComponent, ref, reactive, onMounted } from 'vue';
 import { useCertificateStore } from '@/stores/certificates';
-import type {Certificate} from "@/types/Certificate.ts";
+import type { Certificate } from "@/types/Certificate";
+import type { CertificateRequirements } from "@/types/CertificateRequirements";
+import {useAuthStore} from "@/stores/auth.ts";
+import {UserRole} from "@/types/User.ts";
+import {useUserStore} from "@/stores/users.ts";
 
 export default defineComponent({
   name: 'OverviewTab',
 
   setup() {
     const certificateStore = useCertificateStore();
+    const authStore = useAuthStore();
+    const userStore = useUserStore();
 
     const certificates = computed(() => certificateStore.certificates);
+    const users = computed(() => userStore.users);
     const loading = computed(() => certificateStore.loading);
     const error = computed(() => certificateStore.error);
 
-    // Local state for the modal
-    const isModalVisible = ref(false);
+    // Local state for the modals
+    const isDeleteModalVisible = ref(false);
+    const isGenerateModalVisible = ref(false);
     const certToDelete = ref<Certificate | null>(null);
+
+    // Reactive form state for Generate
+    const certReq = reactive<CertificateRequirements>({
+      cert_name: '',
+      user_id: 0,
+      validity_in_years: 1,
+    });
+    const isAdmin = computed(() => authStore.current_user?.role === UserRole.Admin);
 
     // Fetch certificates when the component is mounted
     onMounted(() => {
       certificateStore.fetchCertificates();
     });
 
-    const confirmDeletion = (cert: Certificate) => {
-      certToDelete.value = cert;
-      isModalVisible.value = true;
+    const showGenerateModal = () => {
+      userStore.fetchUsers();
+      isGenerateModalVisible.value = true;
     };
 
-    const closeModal = () => {
+    const closeGenerateModal = () => {
+      isGenerateModalVisible.value = false;
+      certReq.cert_name = '';
+      certReq.user_id = 0;
+      certReq.validity_in_years = 1;
+    };
+
+    const createCertificate = async () => {
+      try {
+        await certificateStore.createCertificate(certReq);
+        closeGenerateModal();
+      } catch (error) {
+        console.error('Error creating certificate:', error);
+      }
+    };
+
+    const confirmDeletion = (cert: Certificate) => {
+      certToDelete.value = cert;
+      isDeleteModalVisible.value = true;
+    };
+
+    const closeDeleteModal = () => {
       certToDelete.value = null;
-      isModalVisible.value = false;
+      isDeleteModalVisible.value = false;
     };
 
     const deleteCertificate = async () => {
@@ -111,21 +220,29 @@ export default defineComponent({
         } catch (error) {
           console.error(error);
         } finally {
-          closeModal();
+          closeDeleteModal();
         }
       }
     };
 
     return {
       certificates,
+      users,
       loading,
       error,
       downloadCertificate: certificateStore.downloadCertificate,
       confirmDeletion,
-      closeModal,
+      closeDeleteModal,
       deleteCertificate,
-      isModalVisible,
+      isDeleteModalVisible,
       certToDelete,
+      // Generate certificate related
+      certReq,
+      isAdmin,
+      createCertificate,
+      showGenerateModal,
+      closeGenerateModal,
+      isGenerateModalVisible,
     };
   },
 });
@@ -137,5 +254,10 @@ export default defineComponent({
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* When multiple modals are present, we want to stack them properly */
+.modal + .modal {
+  z-index: 1051;
 }
 </style>

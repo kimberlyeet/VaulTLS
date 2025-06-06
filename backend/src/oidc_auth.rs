@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use anyhow::anyhow;
 use crate::settings::OIDC;
-use openidconnect::core::{CoreAuthenticationFlow, CoreClient, CoreProviderMetadata};
+use openidconnect::core::{CoreAuthenticationFlow, CoreClient, CoreProviderMetadata, CoreUserInfoClaims};
 use openidconnect::reqwest::{ClientBuilder, Url};
 use openidconnect::{reqwest, AccessTokenHash, AuthorizationCode, ClientId, ClientSecret, CsrfToken, IssuerUrl, Nonce, OAuth2TokenResponse, PkceCodeChallenge, PkceCodeVerifier, RedirectUrl, Scope, TokenResponse};
 use crate::User;
@@ -101,9 +101,17 @@ impl OidcAuth {
             }
         }
 
-        let oidc_id = claims.subject().to_string();
-        let user_name = claims.preferred_username().unwrap().to_string();
-        let user_email = claims.email().unwrap().to_string();
+        let userinfo: CoreUserInfoClaims = client
+            .user_info(token_response.access_token().clone(), None)?
+            .request_async(&self.http_client)
+            .await?;
+        
+        println!("{:?}", userinfo);
+
+        // Use claims from userinfo instead
+        let oidc_id = userinfo.subject().to_string();
+        let user_name = userinfo.preferred_username().unwrap().to_string();
+        let user_email = userinfo.email().unwrap().to_string();
 
         Ok(User{
             id: -1,

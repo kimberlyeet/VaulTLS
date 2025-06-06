@@ -15,18 +15,18 @@
             Overview
           </a>
         </li>
-        <li class="nav-item mb-2">
+        <li v-if="isAdmin" class="nav-item mb-2">
           <a
               href="#"
               class="nav-link d-flex align-items-center gap-2"
-              :class="{ active: activeRouteName === 'Generate' }"
-              @click.prevent="goToRoute('Generate')"
+              :class="{ active: activeRouteName === 'Users' }"
+              @click.prevent="goToRoute('Users')"
           >
             <i class="bi bi-tools"></i>
-            Generate
+            Users
           </a>
         </li>
-        <li class="nav-item">
+        <li v-if="isAdmin" class="nav-item">
           <a
               href="#"
               class="nav-link d-flex align-items-center gap-2"
@@ -46,6 +46,8 @@
 import { defineComponent, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ProfileCard from './ProfileCard.vue';
+import {UserRole} from "@/types/User.ts";
+import {useAuthStore} from "@/stores/auth.ts";
 
 export default defineComponent({
   name: 'Sidebar',
@@ -53,9 +55,10 @@ export default defineComponent({
   setup() {
     const route = useRoute();
     const router = useRouter();
+    const authStore = useAuthStore();
 
-    // Reactive computed property for the current route name
     const activeRouteName = computed(() => route.name);
+    const isAdmin = computed(() => authStore.current_user?.role == UserRole.Admin);
 
     // A helper method to navigate to a given route name
     const goToRoute = (name: string) => {
@@ -64,6 +67,7 @@ export default defineComponent({
 
     return {
       activeRouteName,
+      isAdmin,
       goToRoute,
     };
   },

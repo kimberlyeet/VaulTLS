@@ -1,9 +1,9 @@
 use num_enum::TryFromPrimitive;
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ValueRef};
-use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
+#[derive(Serialize_repr, Deserialize_repr, Clone, Debug, TryFromPrimitive, Copy, PartialEq, Eq)]
 #[repr(u8)]
-#[derive(Serialize, Deserialize, Clone, Debug, TryFromPrimitive, Copy, PartialEq, Eq)]
 pub(crate) enum UserRole {
     User = 0,
     Admin = 1

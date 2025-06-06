@@ -21,6 +21,17 @@
         </div>
 
         <div class="mb-3">
+          <label for="email" class="form-label">E-Mail</label>
+          <input
+              id="email"
+              type="text"
+              v-model="email"
+              class="form-control"
+              required
+          />
+        </div>
+
+        <div class="mb-3">
           <label for="ca_name" class="form-label">Name of CA entity</label>
           <input
               id="ca_name"
@@ -81,6 +92,7 @@ export default defineComponent({
   setup() {
     const authStore = useAuthStore();
     const username = ref('');
+    const email = ref('');
     const ca_name = ref('');
     const ca_validity_in_years = ref(10);
     const password = ref('');
@@ -90,6 +102,7 @@ export default defineComponent({
       try {
         await setup({
           name: username.value,
+          email: email.value,
           ca_name: ca_name.value,
           ca_validity_in_years: ca_validity_in_years.value,
           password: password.value || null
@@ -103,6 +116,7 @@ export default defineComponent({
     return {
       authStore,
       username,
+      email,
       ca_name,
       ca_validity_in_years,
       password,

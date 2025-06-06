@@ -7,7 +7,7 @@ import {
 
 const defaultSettings: Settings = {
     common: {
-        username: '',
+        password_enabled: false,
     },
     mail: {
         address: '',

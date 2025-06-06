@@ -12,7 +12,7 @@ pub struct Authenticated {
     pub claims: Claims,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Claims {
     pub id: i64,
     pub role: UserRole,
