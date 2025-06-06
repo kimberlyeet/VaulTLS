@@ -2,20 +2,24 @@
 extern crate rocket;
 
 use rocket::fairing::AdHoc;
-use rocket::http::{ContentType, Status, Method, CookieJar, Cookie, SameSite};
-use rocket::response::status::Custom;
+use rocket::http::{Method, CookieJar, Cookie, SameSite};
 use rocket::serde::json::Json;
 use rocket::State;
 use std::sync::Arc;
+use argon2::password_hash::PasswordHashString;
 use rocket::response::Redirect;
-use rocket::serde::{Deserialize, Serialize};
 use rocket::tokio::sync::Mutex;
 use rocket_cors::{AllowedOrigins, CorsOptions};
+use serde::Serialize;
 use cert::create_ca;
 use db::CertificateDB;
 use settings::Settings;
 use crate::local_auth::{generate_token, verify_password, Authenticated};
-use crate::cert::{save_ca, Certificate};
+use crate::cert::{get_pem, save_ca, Certificate};
+use crate::data::api::{CallbackQuery, ChangePasswordRequest, CreateCertificateRequest, CreateUserRequest, DownloadResponse, IsSetupResponse, LoginRequest, LoginResponse, SetupRequest};
+use crate::data::enums::UserRole;
+use crate::data::error::ApiError;
+use crate::helper::hash_password_string;
 use crate::oidc_auth::OidcAuth;
 use crate::settings::FrontendSettings;
 
@@ -25,6 +29,8 @@ mod settings;
 mod notification;
 mod local_auth;
 mod oidc_auth;
+mod data;
+mod helper;
 
 #[derive(Clone)]
 struct AppState {
@@ -33,90 +39,16 @@ struct AppState {
     oidc: Arc<Mutex<Option<OidcAuth>>>
 }
 
-#[derive(Deserialize)]
-struct CreateCertificateRequest {
-    name: String,
-    validity_in_years: Option<u64>,
-}
-
-#[derive(Debug)]
-enum ApiError {
-    Database(rusqlite::Error),
-    OpenSsl(openssl::error::ErrorStack),
-    Unauthorized(Option<String>),
-    Other(String),
-}
-
-impl<'r> rocket::response::Responder<'r, 'static> for ApiError {
-    fn respond_to(self, req: &'r rocket::Request<'_>) -> rocket::response::Result<'static> {
-        match self {
-            ApiError::Database(e) => Custom(Status::InternalServerError, e.to_string()).respond_to(req),
-            ApiError::OpenSsl(e) => Custom(Status::InternalServerError, e.to_string()).respond_to(req),
-            ApiError::Unauthorized(e) => Custom(Status::Unauthorized, e.unwrap_or(Default::default()).to_string()).respond_to(req),
-            ApiError::Other(e) => Custom(Status::InternalServerError, e).respond_to(req),
-        }
-    }
-}
-
-impl From<rusqlite::Error> for ApiError {
-    fn from(error: rusqlite::Error) -> Self {
-        ApiError::Database(error)
-    }
-}
-
-impl From<openssl::error::ErrorStack> for ApiError {
-    fn from(error: openssl::error::ErrorStack) -> Self {
-        ApiError::OpenSsl(error)
-    }
-}
-
-impl From<argon2::password_hash::Error> for ApiError {
-    fn from(error: argon2::password_hash::Error) -> Self {
-        ApiError::Unauthorized(Some(error.to_string()))
-    }
-}
-
-impl From<anyhow::Error> for ApiError {
-    fn from(error: anyhow::Error) -> Self {
-        ApiError::Other(error.to_string())
-    }
-}
-
 #[derive(Serialize)]
-struct IsSetupResponse {
-    setup: bool,
-    password: bool,
-    oidc: String
-}
-
-#[derive(Deserialize)]
-struct SetupRequest {
+struct User {
+    id: i64,
     name: String,
-    ca_name: String,
-    ca_validity_in_years: u64,
-    password: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct LoginRequest {
-    password: Option<String>,
-}
-
-#[derive(Serialize)]
-struct LoginResponse {
-    token: String,
-}
-
-#[derive(Deserialize)]
-struct ChangePasswordRequest {
-    old_password: Option<String>,
-    new_password: String,
-}
-
-#[derive(FromForm)]
-struct CallbackQuery {
-    code: String,
-    state: String
+    email: String,
+    #[serde(skip_serializing)]
+    password_hash: Option<PasswordHashString>,
+    #[serde(skip_serializing)]
+    oidc_id: Option<String>,
+    role: UserRole
 }
 
 #[get("/api")]
@@ -127,10 +59,15 @@ fn index() -> &'static str {
 #[get("/api/certificates")]
 async fn get_certificates(
     state: &State<AppState>,
-    _authenticated: Authenticated
+    authentication: Authenticated
 ) -> Result<Json<Vec<Certificate>>, ApiError> {
     let db = state.db.lock().await;
-    let certificates = db.get_all_user_cert()?;
+    let user_id= if authentication.claims.role == UserRole::Admin {
+            None
+        } else {
+            Some(authentication.claims.id)
+        };
+    let certificates = db.get_all_user_cert(user_id)?;
     Ok(Json(certificates))
 }
 
@@ -138,36 +75,49 @@ async fn get_certificates(
 async fn create_user_certificate(
     state: &State<AppState>,
     payload: Json<CreateCertificateRequest>,
-    _authenticated: Authenticated
+    authentication: Authenticated
 ) -> Result<Json<Certificate>, ApiError> {
+    if authentication.claims.role != UserRole::Admin { return Err(ApiError::Unauthorized(None)) }
+
     let db = state.db.lock().await;
 
     let ca = db.get_current_ca()?;
-    let mut user_cert = cert::create_user_cert(&ca, &payload.name, payload.validity_in_years.unwrap_or(1))?;
+    let mut user_cert = cert::create_user_cert(&ca, &payload.cert_name, payload.validity_in_years.unwrap_or(1))?;
 
-    let id = db.insert_user_cert(user_cert.clone())?;
+    let id = db.insert_user_cert(user_cert.clone(), payload.user_id)?;
     user_cert.set_id(id);
 
     Ok(Json(user_cert))
 }
 
+#[get("/api/certificates/ca/download")]
+async fn download_ca(
+    state: &State<AppState>
+) -> Result<DownloadResponse, ApiError> {
+    let db = state.db.lock().await;
+    let ca = db.get_current_ca()?;
+    let pem = get_pem(&ca)?;
+    Ok(DownloadResponse::new(pem, "ca_certificate.pem"))
+}
 #[get("/api/certificates/<id>/download")]
 async fn download_certificate(
     state: &State<AppState>,
     id: i64,
-    _authenticated: Authenticated
-) -> Result<(Status, (ContentType, Vec<u8>)), ApiError> {
+    authentication: Authenticated
+) -> Result<DownloadResponse, ApiError> {
     let db = state.db.lock().await;
-    let pkcs12 = db.get_user_pkcs12(id)?;
-    Ok((Status::Ok, (ContentType::new("application", "pkcs12"), pkcs12)))
+    let (user_id, pkcs12) = db.get_user_pkcs12(id)?;
+    if user_id != authentication.claims.id { return Err(ApiError::Unauthorized(None)) }
+    Ok(DownloadResponse::new(pkcs12, "user_certificate.p12"))
 }
 
 #[delete("/api/certificates/<id>")]
 async fn delete_user_cert(
     state: &State<AppState>,
     id: i64,
-    _authenticated: Authenticated
+    authentication: Authenticated
 ) -> Result<(), ApiError> {
+    if authentication.claims.role != UserRole::Admin { return Err(ApiError::Unauthorized(None)) }
     let db = state.db.lock().await;
     db.delete_user_cert(id)?;
     Ok(())
@@ -176,8 +126,9 @@ async fn delete_user_cert(
 #[get("/api/settings")]
 async fn fetch_settings(
     state: &State<AppState>,
-    _authenticated: Authenticated
+    authentication: Authenticated
 ) -> Result<Json<FrontendSettings>, ApiError> {
+    if authentication.claims.role != UserRole::Admin { return Err(ApiError::Unauthorized(None)) }
     let settings = state.settings.lock().await;
     let frontend_settings = FrontendSettings(settings.clone());
     Ok(Json(frontend_settings))
@@ -187,8 +138,9 @@ async fn fetch_settings(
 async fn update_settings(
     state: &State<AppState>,
     payload: Json<Settings>,
-    _authenticated: Authenticated
+    authentication: Authenticated
 ) -> Result<(), ApiError> {
+    if authentication.claims.role != UserRole::Admin { return Err(ApiError::Unauthorized(None)) }
     let mut settings = state.settings.lock().await;
     let mut oidc = state.oidc.lock().await;
 
@@ -206,8 +158,9 @@ async fn is_setup(
     state: &State<AppState>
 ) -> Result<Json<IsSetupResponse>, ApiError> {
     let settings = state.settings.lock().await;
-    let is_setup = settings.is_setup();
-    let has_password = settings.has_password();
+    let db = state.db.lock().await;
+    let is_setup = db.is_setup();
+    let has_password = settings.password_enabled();
     let oidc_url = settings.get_oidc().auth_url.clone();
     Ok(Json(IsSetupResponse {
         setup: is_setup,
@@ -221,21 +174,33 @@ async fn setup(
     state: &State<AppState>,
     setup_req: Json<SetupRequest>
 ) -> Result<(), ApiError> {
-    let mut settings = state.settings.lock().await;
-    if settings.is_setup() { return Err(ApiError::Unauthorized(None)) }
+    let settings = state.settings.lock().await;
+    let db = state.db.lock().await;
 
-    settings.set_username(&setup_req.name)?;
+    if db.is_setup() {
+        return Err(ApiError::Unauthorized(None))
+    }
 
-    if setup_req.password.is_some() {
-        settings.set_password(&setup_req.password.clone().unwrap())?;
-    } else if settings.get_oidc().auth_url.is_empty() {
+    if setup_req.password.is_some() && settings.get_oidc().auth_url.is_empty() {
         return Err(ApiError::Other("Password is required".to_string()))
     }
 
-    let db = state.db.lock().await;
-    let ca = create_ca(&setup_req.ca_name, setup_req.ca_validity_in_years)?;
+    let mut user = User{
+        id: -1,
+        name: setup_req.name.clone(),
+        email: setup_req.email.clone(),
+        password_hash: hash_password_string(&setup_req.password)?,
+        oidc_id: None,
+        role: UserRole::Admin,
+    };
+
+    db.add_user(&mut user)?;
+
+    let mut ca = create_ca(&setup_req.ca_name, setup_req.ca_validity_in_years)?;
     save_ca(&ca)?;
-    db.insert_ca(ca)?;
+    let ca_id = db.insert_ca(&ca)?;
+    ca.set_id(ca_id);
+
     Ok(())
 }
 
@@ -245,17 +210,21 @@ async fn login(
     jar: &CookieJar<'_>,
     login_req_opt: Json<LoginRequest>
 ) -> Result<Json<LoginResponse>, ApiError> {
-    if let Some(cookie) = jar.get_private("auth_token") {
-        let token = cookie.value().to_string();
+    if let Some(token_cookie) = jar.get_private("auth_token") {
+        let token = token_cookie.value().to_string();
         return Ok(Json(LoginResponse { token }));
     }
 
     if let Some(password) = &login_req_opt.password {
         let settings = state.settings.lock().await;
-        verify_password(&settings.get_password_hash()?, password)?;
-        let token = generate_token(&settings.get_jwt_key())?;
+        let db = state.db.lock().await;
+        let user: User = db.get_user(login_req_opt.user_id)?;
+        if let Some(password_hash) = user.password_hash {
+            verify_password(&password_hash, password)?;
+            let token = generate_token(&settings.get_jwt_key(), user.id, user.role)?;
 
-        return Ok(Json(LoginResponse { token }));
+            return Ok(Json(LoginResponse { token }));
+        }
     }
 
     Err(ApiError::Unauthorized(None))
@@ -265,18 +234,21 @@ async fn login(
 async fn change_password(
     state: &State<AppState>,
     change_pass_req: Json<ChangePasswordRequest>,
-    _authenticated: Authenticated
+    authentication: Authenticated
 ) -> Result<(), ApiError> {
-    let mut settings = state.settings.lock().await;
+    let db = state.db.lock().await;
+    let user_id = authentication.claims.id;
 
-    if let Ok(password_hash) = settings.get_password_hash() {
+    let password_hash = db.get_user(user_id)?.password_hash;
+
+    if let Some(password_hash) = password_hash {
         match &change_pass_req.old_password {
             Some(old_password) => verify_password(&password_hash, old_password)?,
             None => return Err(ApiError::Unauthorized(Some("Password is required".to_string())))
         }
     }
 
-    settings.set_password(&change_pass_req.new_password)
+    db.set_user_password(user_id, &change_pass_req.new_password)
 }
 
 #[get("/api/auth/oidc/login")]
@@ -303,13 +275,16 @@ async fn oidc_callback(
 ) -> Result<Redirect, ApiError> {
     let mut oidc_option = state.oidc.lock().await;
     let settings = state.settings.lock().await;
+    let db = state.db.lock().await;
 
-    // or use in match, notice &mut borrowing
     match &mut *oidc_option {
         Some(oidc) => {
-            oidc.verify_auth_code(response.code.to_string(), response.state.to_string()).await?;
+            let mut user = oidc.verify_auth_code(response.code.to_string(), response.state.to_string()).await?;
+
+            db.register_oidc_user(&mut user)?;
+
             let jwt_key = settings.get_jwt_key();
-            let token = generate_token(&jwt_key)?;
+            let token = generate_token(&jwt_key, user.id, user.role)?;
 
             let auth_cookie = Cookie::build(("auth_token", token))
                 .secure(true)
@@ -322,6 +297,54 @@ async fn oidc_callback(
         None => { Err(ApiError::Unauthorized(Some("OIDC not configured".to_string()))) },
     }
 }
+
+#[get("/api/users")]
+async fn get_users(
+    state: &State<AppState>,
+    authentication: Authenticated
+) -> Result<Json<Vec<User>>, ApiError> {
+    if authentication.claims.role != UserRole::Admin { return Err(ApiError::Unauthorized(None)) }
+    let db = state.db.lock().await;
+    let users = db.get_all_user()?;
+    Ok(Json(users))
+}
+
+#[post("/api/users", format = "json", data = "<payload>")]
+async fn create_user(
+    state: &State<AppState>,
+    payload: Json<CreateUserRequest>,
+    authentication: Authenticated
+) -> Result<Json<i64>, ApiError> {
+    if authentication.claims.role != UserRole::Admin { return Err(ApiError::Unauthorized(None)) }
+
+    let db = state.db.lock().await;
+
+    let mut user = User{
+        id: -1,
+        name: payload.user_name.to_string(),
+        email: payload.user_email.to_string(),
+        password_hash: hash_password_string(&payload.password)?,
+        oidc_id: None,
+        role: payload.role
+    };
+
+    db.add_user(&mut user)?;
+
+    Ok(Json(user.id))
+}
+
+#[delete("/api/users/<id>")]
+async fn delete_user(
+    state: &State<AppState>,
+    id: i64,
+    authentication: Authenticated
+) -> Result<(), ApiError> {
+    if authentication.claims.role != UserRole::Admin { return Err(ApiError::Unauthorized(None)) }
+    let db = state.db.lock().await;
+    db.delete_user(id)?;
+    Ok(())
+}
+
 
 #[launch]
 async fn rocket() -> _ {
@@ -362,6 +385,7 @@ async fn rocket() -> _ {
                 index,
                 get_certificates,
                 create_user_certificate,
+                download_ca,
                 download_certificate,
                 delete_user_cert,
                 fetch_settings,
@@ -371,7 +395,10 @@ async fn rocket() -> _ {
                 login,
                 change_password,
                 oidc_login,
-                oidc_callback
+                oidc_callback,
+                get_users,
+                create_user,
+                delete_user
             ],
         )
         .attach(cors.to_cors().unwrap())

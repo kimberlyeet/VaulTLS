@@ -26,6 +26,8 @@ pub struct Certificate {
     pub(crate) cert: Vec<u8>,
     #[serde(skip)]
     pub(crate) key: Vec<u8>,
+    #[serde(skip)]
+    pub(crate) ca_id: i64,
 }
 
 impl Certificate {
@@ -152,6 +154,7 @@ pub fn create_user_cert(
             created_on: created_on_unix,
             valid_until: valid_until_unix,
             pkcs12: pkcs12.to_der()?,
+            ca_id: ca.id,
             ..Default::default()
         })
 }
@@ -164,9 +167,13 @@ fn get_timestamp(from_now_in_years: u64) -> Result<(i64, Asn1Time), ErrorStack> 
     Ok((time_unix, time_openssl))
 }
 
-pub fn save_ca(ca: &Certificate) -> Result<(), ApiError> {
+pub fn get_pem(ca: &Certificate) -> Result<Vec<u8>, ErrorStack> {
     let cert = X509::from_der(&ca.cert)?;
-    let pem = cert.to_pem()?;
+    cert.to_pem()
+}
+
+pub fn save_ca(ca: &Certificate) -> Result<(), ApiError> {
+    let pem = get_pem(ca)?;
     fs::write("ca.cert", pem).map_err(|e| ApiError::Other(e.to_string()))?;
     Ok(())
 }

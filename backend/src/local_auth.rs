@@ -6,11 +6,16 @@ use rocket::request::{FromRequest, Outcome, Request};
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use argon2::password_hash::PasswordHashString;
+use crate::data::enums::UserRole;
 
-pub struct Authenticated;
+pub struct Authenticated {
+    pub claims: Claims,
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct Claims {
+    pub id: i64,
+    pub role: UserRole,
     pub exp: usize
 }
 
@@ -34,10 +39,12 @@ impl<'r> FromRequest<'r> for Authenticated {
         let decoding_key = DecodingKey::from_secret(&jwt_key);
         let validation = Validation::default();
 
-        match decode::<Claims>(token, &decoding_key, &validation) {
-            Ok(_) => Outcome::Success(Authenticated),
-            Err(_) => Outcome::Error((Status::Unauthorized, ())),
-        }
+        let claims = match decode::<Claims>(token, &decoding_key, &validation) {
+            Ok(c) => c.claims,
+            Err(_) => return Outcome::Error((Status::Unauthorized, ())),
+        };
+
+        Outcome::Success(Authenticated { claims })
     }
 }
 
@@ -48,16 +55,18 @@ pub fn verify_password(password_hash_string: &PasswordHashString, password: &str
     argon2.verify_password(password.as_bytes(), &password_hash).map_err(|_| ApiError::Unauthorized(Some("Passwords do not match.".to_string())))
 }
 
-pub fn generate_token(jwt_key: &Vec<u8>) -> Result<String, ApiError> {
+pub fn generate_token(jwt_key: &[u8], user_id: i64, user_role: UserRole) -> Result<String, ApiError> {
     let expires = SystemTime::now() + Duration::from_secs(60 * 60 * 24);
     let expires_unix = expires.duration_since(UNIX_EPOCH).unwrap().as_secs() as usize;
     let claims = Claims {
         exp: expires_unix,
+        id: user_id,
+        role: user_role
     };
 
     encode(
         &Header::default(),
         &claims,
-        &EncodingKey::from_secret(&jwt_key),
+        &EncodingKey::from_secret(jwt_key),
     ).map_err(|_| ApiError::Other("Failed to generate JWT".to_string()))
 }

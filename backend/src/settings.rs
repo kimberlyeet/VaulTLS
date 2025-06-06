@@ -1,7 +1,5 @@
 use std::{env, fs, fs::OpenOptions, io::BufWriter};
 use std::env::VarError;
-use argon2::{Argon2, PasswordHasher};
-use argon2::password_hash::{PasswordHashString, SaltString};
 use argon2::password_hash::rand_core::{OsRng, RngCore};
 use openssl::base64;
 use rocket::serde;
@@ -38,7 +36,7 @@ impl Serialize for FrontendSettings {
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Common {
-    username: Option<String>
+    password_enabled: bool
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -53,7 +51,6 @@ pub struct Mail {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Auth {
     jwt_key: String,
-    password_hash: Option<String>
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -66,7 +63,7 @@ pub struct OIDC {
 
 impl Default for Auth {
     fn default() -> Self {
-        Self{ jwt_key: generate_jwt_key(), password_hash: None}
+        Self{ jwt_key: generate_jwt_key(), }
     }
 }
 
@@ -114,7 +111,6 @@ impl Settings {
     }
 
     pub fn set_settings(&mut self, settings: &Settings) -> Result<(), ApiError> {
-        self.common = settings.common.clone();
         self.mail = settings.mail.clone();
         self.oidc = settings.oidc.clone();
 
@@ -125,37 +121,11 @@ impl Settings {
         base64::decode_block(self.auth.jwt_key.as_str()).expect("JWT key is malformed")
     }
 
-    pub fn set_password(&mut self, password: &str) -> Result<(), ApiError> {
-        let salt = SaltString::generate(&mut OsRng);
-        let argon2 = Argon2::default();
-
-        let password_hash = argon2.hash_password(password.as_bytes(), &salt)
-            .map_err(|_| ApiError::Other("Failed to hash password".to_string()))?;
-        self.auth.password_hash = Some(password_hash.to_string());
-        self.save(None)?;
-        Ok(())
-    }
-
-    pub fn get_password_hash(&self) -> Result<PasswordHashString, ApiError> {
-        if self.auth.password_hash.is_none() { return Err(ApiError::Other("Password not configured".to_string())) }
-        let password_string = self.auth.password_hash.clone().unwrap();
-        PasswordHashString::new(&password_string).map_err(|_| ApiError::Other("Password has invalid format".to_string()))
-    }
-
-    pub fn is_setup(&self) -> bool {
-        self.common.username.is_some()
-    }
-
-    pub fn has_password(&self) -> bool {
-        self.auth.password_hash.is_some()
-    }
-    
-    pub fn set_username(&mut self, username: &String) -> Result<(), ApiError> {
-        self.common.username = Some(username.clone());
-        self.save(None).map_err(|_| { ApiError::Other("Failed to save username".to_string()) } )
-    }
-
     pub fn get_oidc(&self) -> &OIDC {
         &self.oidc
+    }
+    
+    pub fn password_enabled(&self) -> bool {
+        self.common.password_enabled
     }
 }

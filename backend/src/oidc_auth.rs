@@ -4,6 +4,8 @@ use crate::settings::OIDC;
 use openidconnect::core::{CoreAuthenticationFlow, CoreClient, CoreProviderMetadata};
 use openidconnect::reqwest::{ClientBuilder, Url};
 use openidconnect::{reqwest, AccessTokenHash, AuthorizationCode, ClientId, ClientSecret, CsrfToken, IssuerUrl, Nonce, OAuth2TokenResponse, PkceCodeChallenge, PkceCodeVerifier, RedirectUrl, Scope, TokenResponse};
+use crate::User;
+use crate::data::enums::UserRole;
 
 #[derive(Debug)]
 pub struct OidcAuth {
@@ -63,7 +65,7 @@ impl OidcAuth {
         Ok(auth_url)
     }
 
-    pub async fn verify_auth_code(&mut self, code: String, state: String) -> anyhow::Result<()> {
+    pub async fn verify_auth_code(&mut self, code: String, state: String) -> anyhow::Result<User> {
         if ! self.oidc_state.contains_key(&state) { return Err(anyhow!("State does not exist")) }
         let (stored_pkce, stored_nonce) = self.oidc_state.remove(&state).unwrap();
 
@@ -99,7 +101,17 @@ impl OidcAuth {
             }
         }
 
+        let oidc_id = claims.subject().to_string();
+        let user_name = claims.preferred_username().unwrap().to_string();
+        let user_email = claims.email().unwrap().to_string();
 
-        Ok(())
+        Ok(User{
+            id: -1,
+            name: user_name,
+            email: user_email,
+            password_hash: None,
+            oidc_id: Some(oidc_id),
+            role: UserRole::User
+        })
     }
 }
