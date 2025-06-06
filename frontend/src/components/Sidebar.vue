@@ -1,5 +1,5 @@
 <template>
-  <div class="sidebar bg-light vh-100 p-3 shadow-lg rounded-end" style="width: 250px;">
+  <div class="sidebar bg-light vh-200 p-3 shadow-lg rounded-end" style="width: 250px;">
     <ProfileCard />
 
     <nav class="mt-4">
@@ -26,7 +26,7 @@
             Users
           </a>
         </li>
-        <li v-if="isAdmin" class="nav-item">
+        <li class="nav-item">
           <a
               href="#"
               class="nav-link d-flex align-items-center gap-2"

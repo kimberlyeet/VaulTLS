@@ -67,7 +67,10 @@ const router = createRouter({
                         return next({ name: 'Login' });
                     }
 
-                    // Otherwise, proceed
+                    if (!authStore.current_user) {
+                        await authStore.init();
+                    }
+
                     next();
                 } catch (error) {
                     console.error('Error checking setup or auth:', error);

@@ -1,6 +1,8 @@
 // src/components/UserTab.vue
 <template>
   <div class="user-tab">
+    <h1>Users</h1>
+    <hr />
     <!-- Loading and Error states -->
     <div v-if="userStore.loading" class="alert alert-info">
       Loading...

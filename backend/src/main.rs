@@ -10,7 +10,7 @@ use argon2::password_hash::PasswordHashString;
 use rocket::response::Redirect;
 use rocket::tokio::sync::Mutex;
 use rocket_cors::{AllowedOrigins, CorsOptions};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use cert::create_ca;
 use db::CertificateDB;
 use settings::Settings;
@@ -39,14 +39,14 @@ struct AppState {
     oidc: Arc<Mutex<Option<OidcAuth>>>
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 struct User {
     id: i64,
     name: String,
     email: String,
-    #[serde(skip_serializing)]
+    #[serde(skip)]
     password_hash: Option<PasswordHashString>,
-    #[serde(skip_serializing)]
+    #[serde(skip)]
     oidc_id: Option<String>,
     role: UserRole
 }
@@ -346,6 +346,17 @@ async fn create_user(
     Ok(Json(user.id))
 }
 
+#[put("/api/users", format = "json", data = "<payload>")]
+async fn update_user(
+    state: &State<AppState>,
+    payload: Json<User>,
+    authentication: Authenticated
+) -> Result<(), ApiError> {
+    if payload.id != authentication.claims.id && authentication.claims.role != UserRole::Admin { return Err(ApiError::Unauthorized(None)) }
+    let db = state.db.lock().await;
+    Ok(db.update_user(&payload)?)
+}
+
 #[delete("/api/users/<id>")]
 async fn delete_user(
     state: &State<AppState>,
@@ -412,7 +423,8 @@ async fn rocket() -> _ {
                 get_current_user,
                 get_users,
                 create_user,
-                delete_user
+                delete_user,
+                update_user
             ],
         )
         .attach(cors.to_cors().unwrap())

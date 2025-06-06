@@ -2,36 +2,43 @@
   <div>
     <h1>Certificates</h1>
     <hr />
-    <div v-if="isAdmin" class="mb-3">
-      <button class="btn btn-primary" @click="showGenerateModal">
-        Generate New Certificate
-      </button>
+    <div class="table-responsive">
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th v-if="isAdmin">User</th>
+            <th>Name</th>
+            <th>Created on</th>
+            <th>Valid until</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="cert in certificates" :key="cert.id">
+            <td v-if="isAdmin">{{ userStore.idToName(cert.id) }}</td>
+            <td>{{ cert.name }}</td>
+            <td>{{ new Date(cert.created_on).toLocaleDateString() }}</td>
+            <td>{{ new Date(cert.valid_until).toLocaleDateString() }}</td>
+            <td>
+              <button class="btn btn-primary btn-sm" @click="downloadCertificate(cert.id)">
+                Download
+              </button>
+              <button v-if="isAdmin" class="btn btn-danger btn-sm ms-2" @click="confirmDeletion(cert)">
+                Delete
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
-    <table class="table table-bordered">
-      <thead>
-      <tr>
-        <th>Name</th>
-        <th>Created on</th>
-        <th>Valid until</th>
-        <th>Actions</th>
-      </tr>
-      </thead>
-      <tbody>
-      <tr v-for="cert in certificates" :key="cert.id">
-        <td>{{ cert.name }}</td>
-        <td>{{ new Date(cert.created_on).toLocaleDateString() }}</td>
-        <td>{{ new Date(cert.valid_until).toLocaleDateString() }}</td>
-        <td>
-          <button class="btn btn-primary btn-sm" @click="downloadCertificate(cert.id)">
-            Download
-          </button>
-          <button v-if="isAdmin" class="btn btn-danger btn-sm ms-2" @click="confirmDeletion(cert)">
-            Delete
-          </button>
-        </td>
-      </tr>
-      </tbody>
-    </table>
+
+    <button
+        v-if="isAdmin"
+        class="btn btn-primary mb-3"
+        @click="showGenerateModal"
+    >
+      Create New Certificate
+    </button>
 
     <div v-if="loading" class="text-center mt-3">Loading certificates...</div>
     <div v-if="error" class="alert alert-danger mt-3">{{ error }}</div>
@@ -68,7 +75,7 @@
                   class="form-control"
               >
                 <option value="" disabled>Select a user</option>
-                <option v-for="user in users" :key="user.id" :value="user.id">
+                <option v-for="user in userStore.users" :key="user.id" :value="user.id">
                   {{ user.name }}
                 </option>
               </select>
@@ -160,7 +167,6 @@ export default defineComponent({
     const userStore = useUserStore();
 
     const certificates = computed(() => certificateStore.certificates);
-    const users = computed(() => userStore.users);
     const loading = computed(() => certificateStore.loading);
     const error = computed(() => certificateStore.error);
 
@@ -175,11 +181,17 @@ export default defineComponent({
       user_id: 0,
       validity_in_years: 1,
     });
-    const isAdmin = computed(() => authStore.current_user?.role === UserRole.Admin);
+    const isAdmin = computed(() => {
+      return authStore.current_user !== null && authStore.current_user.role === UserRole.Admin;
+    });
+
 
     // Fetch certificates when the component is mounted
     onMounted(() => {
       certificateStore.fetchCertificates();
+      if (isAdmin.value) {
+        userStore.fetchUsers();
+      }
     });
 
     const showGenerateModal = () => {
@@ -227,7 +239,7 @@ export default defineComponent({
 
     return {
       certificates,
-      users,
+      userStore,
       loading,
       error,
       downloadCertificate: certificateStore.downloadCertificate,

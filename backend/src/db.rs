@@ -160,6 +160,15 @@ impl CertificateDB {
         Ok(())
     }
 
+    pub fn update_user(&self, user: &User) -> Result<(), rusqlite::Error> {
+        self.connection.execute(
+            "UPDATE users SET name = ?1, email =?2 WHERE id=?3",
+            params![user.name, user.email, user.id]
+        )?;
+
+        Ok(())
+    }
+
     pub fn get_user(&self, id: i64) -> Result<User, rusqlite::Error> {
         self.connection.query_row(
             "SELECT id, name, email, password_hash, oidc_id, role FROM users WHERE id=?1",

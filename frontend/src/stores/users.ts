@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import type {CreateUserRequest, User} from "@/types/User.ts";
-import {createUser, deleteUser, fetchUsers} from "@/api/users.ts";
+import {createUser, deleteUser, fetchUsers, updateUser} from "@/api/users.ts";
 
 export const useUserStore = defineStore('user', {
     state: () => ({
@@ -31,8 +31,21 @@ export const useUserStore = defineStore('user', {
             this.loading = true;
             this.error = null;
             try {
-                await createUser(createUserReq); // This will handle download and fetch internally
-                this.users = await fetchUsers(); // Refresh the local state
+                await createUser(createUserReq);
+                this.users = await fetchUsers();
+            } catch (err) {
+                this.error = 'Failed to create user.';
+                console.error(err);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async updateUser(user: User): Promise<void> {
+            this.loading = true;
+            this.error = null;
+            try {
+                await updateUser(user);
             } catch (err) {
                 this.error = 'Failed to create user.';
                 console.error(err);
@@ -55,5 +68,14 @@ export const useUserStore = defineStore('user', {
                 this.loading = false;
             }
         },
+
+        idToName(id: number): string {
+            for (const user of this.users) {
+                if (user.id == id) {
+                    return user.name;
+                }
+            }
+            return "Unknown User #" + id;
+        }
     },
 });

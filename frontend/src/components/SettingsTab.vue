@@ -2,154 +2,184 @@
   <div class="settings-tab">
     <h1>Settings</h1>
     <hr />
+    <!-- Application Section -->
+    <div v-if="isAdmin" class="mb-3">
+      <!-- Common Section -->
+      <h3>Common</h3>
+      <div class="card mt-3">
+        <div class="card-body">
+          <div class="mb-3 form-check form-switch">
+            <input
+                type="checkbox"
+                class="form-check-input"
+                id="common-password-enabled"
+                v-model="settings.common.password_enabled"
+                role="switch"
+            />
+            <label class="form-check-label" for="common-password-enabled">
+              Password Login enabled
+            </label>
+          </div>
+        </div>
+      </div>
 
-    <!-- Common Section -->
-    <h2>Common</h2>
-    <div class="mb-3 form-check form-switch">
-      <input
-          type="checkbox"
-          class="form-check-input"
-          id="common-password-enabled"
-          v-model="settings.common.password_enabled"
-          role="switch"
-      />
-      <label class="form-check-label" for="common-password-enabled">
-        Password Login enabled
-      </label>
+      <!-- Mail Section -->
+      <h3>Mail</h3>
+      <div class="card mt-3">
+        <div class="card-body">
+          <div class="mb-3">
+            <label for="mail-address" class="form-label">Address</label>
+            <input
+                id="mail-address"
+                v-model="settings.mail.address"
+                type="email"
+                class="form-control"
+            />
+          </div>
+          <div class="mb-3">
+            <label for="mail-username" class="form-label">Username</label>
+            <input
+                id="mail-username"
+                v-model="settings.mail.username"
+                type="text"
+                class="form-control"
+            />
+          </div>
+          <div class="mb-3">
+            <label for="mail-password" class="form-label">Password</label>
+            <input
+                id="mail-password"
+                v-model="settings.mail.password"
+                type="password"
+                class="form-control"
+            />
+          </div>
+          <div class="mb-3">
+            <label for="mail-from" class="form-label">From</label>
+            <input
+                id="mail-from"
+                v-model="settings.mail.from"
+                type="email"
+                class="form-control"
+            />
+          </div>
+          <div class="mb-3">
+            <label for="mail-to" class="form-label">To</label>
+            <input
+                id="mail-to"
+                v-model="settings.mail.to"
+                type="email"
+                class="form-control"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- OIDC Section -->
+      <h3>OIDC</h3>
+      <div class="card mt-3">
+        <div class="card-body">
+          <div class="mb-3">
+            <label for="oidc-id" class="form-label">Client ID</label>
+            <input
+                id="oidc-id"
+                v-model="settings.oidc.id"
+                type="text"
+                class="form-control"
+            />
+          </div>
+          <div class="mb-3">
+            <label for="oidc-secret" class="form-label">Client Secret</label>
+            <input
+                id="oidc-secret"
+                v-model="settings.oidc.secret"
+                type="password"
+                class="form-control"
+            />
+          </div>
+          <div class="mb-3">
+            <label for="oidc-auth-url" class="form-label">Authorization URL</label>
+            <input
+                id="oidc-auth-url"
+                v-model="settings.oidc.auth_url"
+                type="text"
+                class="form-control"
+            />
+          </div>
+          <div class="mb-3">
+            <label for="oidc-callback-url" class="form-label">Callback URL</label>
+            <input
+                id="oidc-callback-url"
+                v-model="settings.oidc.callback_url"
+                type="text"
+                class="form-control"
+            />
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- Mail Section -->
-    <h2>Mail</h2>
-    <div class="mb-3">
-      <label for="mail-address" class="form-label">Address</label>
-      <input
-          id="mail-address"
-          v-model="settings.mail.address"
-          type="email"
-          class="form-control"
-      />
-    </div>
-    <div class="mb-3">
-      <label for="mail-username" class="form-label">Username</label>
-      <input
-          id="mail-username"
-          v-model="settings.mail.username"
-          type="text"
-          class="form-control"
-      />
-    </div>
-    <div class="mb-3">
-      <label for="mail-password" class="form-label">Password</label>
-      <input
-          id="mail-password"
-          v-model="settings.mail.password"
-          type="password"
-          class="form-control"
-      />
-    </div>
-    <div class="mb-3">
-      <label for="mail-from" class="form-label">From</label>
-      <input
-          id="mail-from"
-          v-model="settings.mail.from"
-          type="email"
-          class="form-control"
-      />
-    </div>
-    <div class="mb-3">
-      <label for="mail-to" class="form-label">To</label>
-      <input
-          id="mail-to"
-          v-model="settings.mail.to"
-          type="email"
-          class="form-control"
-      />
-    </div>
-
-    <!-- OIDC Section -->
-    <h2>OIDC</h2>
-    <div class="mb-3">
-      <label for="oidc-id" class="form-label">Client ID</label>
-      <input
-          id="oidc-id"
-          v-model="settings.oidc.id"
-          type="text"
-          class="form-control"
-      />
-    </div>
-    <div class="mb-3">
-      <label for="oidc-secret" class="form-label">Client Secret</label>
-      <input
-          id="oidc-secret"
-          v-model="settings.oidc.secret"
-          type="password"
-          class="form-control"
-      />
-    </div>
-    <div class="mb-3">
-      <label for="oidc-auth-url" class="form-label">Authorization URL</label>
-      <input
-          id="oidc-auth-url"
-          v-model="settings.oidc.auth_url"
-          type="text"
-          class="form-control"
-      />
-    </div>
-    <div class="mb-3">
-      <label for="oidc-callback-url" class="form-label">Callback URL</label>
-      <input
-          id="oidc-callback-url"
-          v-model="settings.oidc.callback_url"
-          type="text"
-          class="form-control"
-      />
-    </div>
-
-    <!-- Change Password Section -->
-    <h2>Security</h2>
-    <button class="btn btn-warning mt-3" @click="showPasswordDialog = true">
-      Change Password
-    </button>
-
-    <!-- Change Password Dialog -->
-    <div v-if="showPasswordDialog" class="password-dialog">
-      <div class="dialog-content">
-        <h3>Change Password</h3>
-        <div v-if="authStore.password_auth" class="mb-3">
-          <label for="old-password" class="form-label">Old Password</label>
+    <h2>User</h2>
+    <div class="card mt-5">
+      <div class="card-body">
+        <h4 class="card-header">Change Password</h4>
+        <form v-if="authStore.password_auth" @submit.prevent="changePassword">
+          <div class="mb-3">
+            <label for="old-password" class="form-label">Old Password</label>
+            <input
+                id="old-password"
+                v-model="changePasswordReq.oldPassword"
+                type="password"
+                class="form-control"
+            />
+          </div>
+          <div class="mb-3">
+            <label for="new-password" class="form-label">New Password</label>
+            <input
+                id="new-password"
+                v-model="changePasswordReq.newPassword"
+                type="password"
+                class="form-control"
+            />
+          </div>
+          <div class="mb-3">
+            <label for="confirm-password" class="form-label">Confirm New Password</label>
+            <input
+                id="confirm-password"
+                v-model="confirmPassword"
+                type="password"
+                class="form-control"
+            />
+          </div>
+          <button
+              type="submit"
+              class="btn btn-primary"
+              :disabled="!canChangePassword"
+          >
+            Change Password
+          </button>
+        </form>
+      </div>
+      <div v-if="editableUser" class="card-body">
+        <h4 class="card-header">Profile</h4>
+        <div class="mb-3">
+          <label for="user_name" class="form-label">Username</label>
           <input
-              id="old-password"
-              v-model="changePasswordReq.oldPassword"
-              type="password"
+              id="user_name"
+              v-model="editableUser.name"
+              type="text"
               class="form-control"
           />
         </div>
         <div class="mb-3">
-          <label for="new-password" class="form-label">New Password</label>
+          <label for="user_email" class="form-label">E-Mail</label>
           <input
-              id="new-password"
-              v-model="changePasswordReq.newPassword"
-              type="password"
+              id="user_email"
+              v-model="editableUser.email"
+              type="email"
               class="form-control"
           />
         </div>
-        <div class="mb-3">
-          <label for="confirm-password" class="form-label">Confirm New Password</label>
-          <input
-              id="confirm-password"
-              v-model="confirmPassword"
-              type="password"
-              class="form-control"
-          />
-        </div>
-        <button
-            class="btn btn-primary"
-            :disabled="!canChangePassword"
-            @click="changePassword"
-        >
-          Change Password
-        </button>
-        <button class="btn btn-secondary" @click="showPasswordDialog = false">Cancel</button>
       </div>
     </div>
 
@@ -159,30 +189,37 @@
 </template>
 
 <script lang="ts">
-import { computed, defineComponent, ref, onMounted } from 'vue';
+import {computed, defineComponent, ref, onMounted} from 'vue';
 import { useSettingseStore } from '@/stores/settings';
 import { useAuthStore } from '@/stores/auth';
+import {type User, UserRole} from "@/types/User.ts";
+import {useUserStore} from "@/stores/users.ts";
 
 export default defineComponent({
   name: 'SettingsTab',
   setup() {
     const settingsStore = useSettingseStore();
     const authStore = useAuthStore();
+    const userStore = useUserStore();
 
     const settings = computed(() => settingsStore.settings);
     const showPasswordDialog = ref(false);
     const changePasswordReq = ref({ oldPassword: '', newPassword: '' });
     const confirmPassword = ref('');
+    const current_user = computed(() => authStore.current_user);
+    const editableUser = ref<User | null>(null);
 
     const canChangePassword = computed(() =>
         changePasswordReq.value.newPassword === confirmPassword.value &&
         changePasswordReq.value.newPassword.length > 0
     );
 
+    const isAdmin = computed(() => authStore.current_user?.role === UserRole.Admin);
+
     const changePassword = async () => {
       const req = {
-        old_password: authStore.password_auth ? changePasswordReq.value.oldPassword : null,
-        new_password: changePasswordReq.value.newPassword,
+        old_password: changePasswordReq.value.oldPassword,
+        new_password: changePasswordReq.value.newPassword
       };
       await authStore.change_password(req);
       showPasswordDialog.value = false;
@@ -190,38 +227,45 @@ export default defineComponent({
       confirmPassword.value = '';
     };
 
+    const saveSettings = async () => {
+      try {
+        if (current_user.value?.role == UserRole.Admin) {
+          await settingsStore.saveSettings();
+        }
+
+        if (editableUser.value) {
+          await userStore.updateUser(editableUser.value);
+          await authStore.fetchCurrentUser();
+        }
+      } catch (error) {
+        console.error('Failed to save settings:', error);
+      }
+    }
+
     onMounted(async () => {
-      await settingsStore.fetchSettings();
+      if (isAdmin.value) {
+        await settingsStore.fetchSettings();
+      }
+      if (current_user.value) {
+        editableUser.value = { ...current_user.value };
+      }
     });
 
     return {
       settings,
-      saveSettings: settingsStore.saveSettings,
+      editableUser,
+      saveSettings,
       showPasswordDialog,
       changePasswordReq,
       confirmPassword,
       canChangePassword,
       changePassword,
       authStore,
+      isAdmin
     };
   },
 });
 </script>
 
 <style scoped>
-.password-dialog {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: white;
-  padding: 20px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-}
-.dialog-content {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
 </style>

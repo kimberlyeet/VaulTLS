@@ -5,17 +5,27 @@ import type {User} from "@/types/User.ts";
 
 export const useAuthStore = defineStore('auth', {
     state: () => ({
-        token: '' as string | null,
-        isAuthenticated: false as boolean,
+        token: localStorage.getItem('auth_token') as string | null,
+        isAuthenticated: !!localStorage.getItem('auth_token') as boolean,
         password_auth: false as boolean,
         current_user: null as User | null,
         oidc_url: null as string | null,
         error: null as string | null,
     }),
     actions: {
+        async init() {
+            if (this.token) {
+                try {
+                    await this.fetchCurrentUser();
+                } catch (err) {
+                    this.logout();
+                }
+            }
+        },
         async login(email: string | undefined, password: string | undefined) {
             try {
                 this.token = (await login({email, password})).token;
+                localStorage.setItem('auth_token', this.token);
                 this.current_user = (await current_user());
                 this.isAuthenticated = true;
 
@@ -50,8 +60,20 @@ export const useAuthStore = defineStore('auth', {
                 return false;
             }
         },
+        async fetchCurrentUser() {
+            try {
+                this.current_user = (await current_user());
+                this.isAuthenticated = true;
+            } catch (err) {
+                this.error = 'Failed to fetch current user.';
+                console.error(err);
+            }
+        },
         logout() {
             this.token = null;
+            localStorage.removeItem('auth_token');
+            this.isAuthenticated = false;
+            this.current_user = null;
         },
     },
 });
