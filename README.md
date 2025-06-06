@@ -1,3 +1,3 @@
-# mtls-certificate-management
+# VaulTLS
 
 Make managing mTLS certificates a breeze.
