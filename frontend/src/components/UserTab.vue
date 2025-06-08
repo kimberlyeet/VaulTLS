@@ -1,6 +1,6 @@
 // src/components/UserTab.vue
 <template>
-  <div class="user-tab">
+  <div>
     <h1>Users</h1>
     <hr />
     <!-- Loading and Error states -->
@@ -190,9 +190,6 @@ export default defineComponent({
 </script>
 
 <style scoped>
-.user-tab {
-  padding: 20px;
-}
 
 /* Modal overlay styles when modal is shown */
 :deep(.modal.show) {

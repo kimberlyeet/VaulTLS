@@ -6,6 +6,8 @@ import type {User} from "@/types/User.ts";
 export const useAuthStore = defineStore('auth', {
     state: () => ({
         token: localStorage.getItem('auth_token') as string | null,
+        isInitialized: false as boolean,
+        isSetup: false as boolean,
         isAuthenticated: !!localStorage.getItem('auth_token') as boolean,
         password_auth: false as boolean,
         current_user: null as User | null,
@@ -14,12 +16,15 @@ export const useAuthStore = defineStore('auth', {
     }),
     actions: {
         async init() {
-            if (this.token) {
-                try {
+            try {
+                await this.is_setup();
+                if (this.token) {
                     await this.fetchCurrentUser();
-                } catch (err) {
-                    this.logout();
                 }
+            } catch (err) {
+                this.logout();
+            } finally {
+                this.isInitialized = true;
             }
         },
         async login(email: string | undefined, password: string | undefined) {
@@ -41,8 +46,7 @@ export const useAuthStore = defineStore('auth', {
                 const isSetupResponse = (await is_setup());
                 this.password_auth = isSetupResponse.password;
                 this.oidc_url = isSetupResponse.oidc;
-
-                return isSetupResponse.setup;
+                this.isSetup = isSetupResponse.setup;
             } catch (err) {
                 this.error = 'Failed to get setup state.';
                 console.error(err);

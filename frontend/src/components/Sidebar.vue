@@ -1,5 +1,5 @@
 <template>
-  <div class="sidebar bg-light vh-200 p-3 shadow-lg rounded-end" style="width: 250px;">
+  <div class="sidebar shadow-lg rounded-end" style="width: 250px;">
     <ProfileCard />
 
     <nav class="mt-4">
@@ -75,13 +75,26 @@ export default defineComponent({
 </script>
 
 <style scoped>
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  height: 100vh;
+  overflow-y: auto;
+  z-index: 1000;
+  background-color: var(--color-background);
+}
 .nav-link {
   color: #000;
   text-decoration: none;
 }
+.nav-link:hover {
+  background-color: var(--color-hover);
+}
 .nav-link.active {
   font-weight: bold;
-  background-color: #e7e7e7;
+  background-color: var(--color-active);
   border-radius: 4px;
 }
 </style>

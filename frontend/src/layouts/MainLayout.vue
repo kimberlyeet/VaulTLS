@@ -38,6 +38,6 @@ export default defineComponent({
 
 <style scoped>
 .container {
-  margin-left: 50px; /* Adjust based on your Sidebar width */
+  margin-left: 250px; /* Adjust based on your Sidebar width */
 }
 </style>

@@ -3,7 +3,7 @@
     <div class="card p-4 shadow" style="max-width: 400px; width: 100%;">
       <h1 class="text-center mb-4">Login</h1>
 
-      <form v-if="authStore.password_auth" @submit.prevent="submitLogin">
+      <form v-if="password_auth" @submit.prevent="submitLogin">
         <div class="mb-3">
           <label for="email" class="form-label">E-Mail</label>
           <input
@@ -35,7 +35,7 @@
         Password authentication is not set up.
       </p>
 
-      <div v-if="authStore.oidc_url" class="mt-3">
+      <div v-if="oidc_url" class="mt-3">
         <button @click="redirectToOIDC" class="btn btn-outline-primary w-100">
           <i class="bi bi-box-arrow-in-right me-2"></i> Login with OAuth
         </button>
@@ -45,7 +45,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref } from 'vue';
+import {computed, defineComponent, ref} from 'vue';
 import { useAuthStore } from '../stores/auth';
 import router from "@/router/router.ts";
 
@@ -56,6 +56,8 @@ export default defineComponent({
     const password = ref('');
     const loginError = ref('');
     const authStore = useAuthStore();
+    const password_auth = computed(() => authStore.password_auth);
+    const oidc_url = computed(()  => authStore.oidc_url);
 
     const submitLogin = async () => {
       loginError.value = '';
@@ -78,7 +80,8 @@ export default defineComponent({
       password,
       loginError,
       submitLogin,
-      authStore,
+      password_auth,
+      oidc_url,
       redirectToOIDC,
     };
   },

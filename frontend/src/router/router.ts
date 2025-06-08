@@ -52,23 +52,19 @@ const router = createRouter({
                 const authStore = useAuthStore();
 
                 try {
-                    const isSetup = await authStore.is_setup();
-                    if (!isSetup) {
+                    if (!authStore.isInitialized) {
+                        await authStore.init();
+                    }
+                    if (!authStore.isSetup) {
                         return next({ name: 'FirstSetup' });
                     }
                     let urlParams = new URLSearchParams(window.location.search);
-                    console.log(urlParams.get('oidc'));
                     if (urlParams.has('oidc')) {
-                        console.log("trying oidc login");
                         await authStore.login(undefined, undefined)
                     }
 
                     if (!authStore.isAuthenticated) {
                         return next({ name: 'Login' });
-                    }
-
-                    if (!authStore.current_user) {
-                        await authStore.init();
                     }
 
                     next();
