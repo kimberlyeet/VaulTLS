@@ -9,26 +9,11 @@ class ApiClient {
     constructor(baseURL: string) {
         this.client = axios.create({
             baseURL,
+            withCredentials: true,
             headers: {
                 'Content-Type': 'application/json',
             },
         });
-
-        this.client.interceptors.request.use(
-            (config) => {
-                const authStore = useAuthStore();
-                const token = authStore.token;
-
-                if (token) {
-                    config.headers.Authorization = `Bearer ${token}`;
-                }
-
-                return config;
-            },
-            (error) => {
-                return Promise.reject(error);
-            }
-        );
 
         // Response interceptor to handle token expiration
         this.client.interceptors.response.use(

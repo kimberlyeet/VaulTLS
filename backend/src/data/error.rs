@@ -9,6 +9,7 @@ pub enum ApiError {
     OpenSsl(openssl::error::ErrorStack),
     Unauthorized(Option<String>),
     BadRequest(String),
+    Forbidden(Option<String>),
     Other(String),
 }
 
@@ -19,6 +20,7 @@ impl<'r> rocket::response::Responder<'r, 'static> for ApiError {
             ApiError::OpenSsl(e) => Custom(Status::InternalServerError, e.to_string()).respond_to(req),
             ApiError::Unauthorized(e) => Custom(Status::Unauthorized, e.unwrap_or(Default::default()).to_string()).respond_to(req),
             ApiError::BadRequest(e) => Custom(Status::BadRequest, e).respond_to(req),
+            ApiError::Forbidden(e) => Custom(Status::Forbidden, e).respond_to(req),
             ApiError::Other(e) => Custom(Status::InternalServerError, e).respond_to(req),
         }
     }
@@ -27,7 +29,7 @@ impl<'r> rocket::response::Responder<'r, 'static> for ApiError {
 impl Display for ApiError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
-    }   
+    }
 }
 
 impl From<rusqlite::Error> for ApiError {

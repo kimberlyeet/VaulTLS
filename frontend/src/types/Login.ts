@@ -6,10 +6,6 @@ export interface SetupReq {
     password: string | null;
 }
 
-export interface LoginResponse {
-    token: string;
-}
-
 export interface IsSetupResponse {
     setup: boolean,
     password: boolean,

@@ -5,10 +5,9 @@ import type {User} from "@/types/User.ts";
 
 export const useAuthStore = defineStore('auth', {
     state: () => ({
-        token: localStorage.getItem('auth_token') as string | null,
         isInitialized: false as boolean,
         isSetup: false as boolean,
-        isAuthenticated: !!localStorage.getItem('auth_token') as boolean,
+        isAuthenticated: false as boolean,
         password_auth: false as boolean,
         current_user: null as User | null,
         oidc_url: null as string | null,
@@ -19,7 +18,8 @@ export const useAuthStore = defineStore('auth', {
             try {
                 this.error = null;
                 await this.is_setup();
-                if (this.token) {
+                this.isAuthenticated = localStorage.getItem("isAuthenticated") === String("true");
+                if (this.isAuthenticated) {
                     await this.fetchCurrentUser();
                 }
             } catch (err) {
@@ -31,10 +31,9 @@ export const useAuthStore = defineStore('auth', {
         async login(email: string | undefined, password: string | undefined) {
             try {
                 this.error = null;
-                this.token = (await login({email, password})).token;
-                localStorage.setItem('auth_token', this.token);
+                await login({email, password});
                 this.current_user = (await current_user());
-                this.isAuthenticated = true;
+                this.setAuthentication(true);
 
                 return true;
             } catch (err) {
@@ -72,18 +71,34 @@ export const useAuthStore = defineStore('auth', {
             try {
                 this.error = null;
                 this.current_user = (await current_user());
-                this.isAuthenticated = true;
+                this.setAuthentication(true);
             } catch (err) {
                 this.error = 'Failed to fetch current user.';
                 console.error(err);
             }
         },
+        async finishOIDC() {
+            try {
+                this.error = null;
+                await this.fetchCurrentUser()
+                this.setAuthentication(true);
+            } catch (err) {
+                this.error = 'Failed to finish OIDC callback.';
+                console.error(err);
+            }
+        },
+        setAuthentication(isAuthenticated: boolean) {
+            if (isAuthenticated) {
+                this.isAuthenticated = true;
+                localStorage.setItem('is_authenticated', String(true));
+            } else {
+                this.isAuthenticated = false;
+                localStorage.removeItem('is_authenticated');
+            }
+        },
         logout() {
             this.error = null;
-            this.token = null;
-            localStorage.removeItem('auth_token');
-            this.isAuthenticated = false;
-            this.current_user = null;
+            this.setAuthentication(false);
         },
     },
 });

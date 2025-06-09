@@ -16,7 +16,7 @@ use db::CertificateDB;
 use settings::Settings;
 use crate::local_auth::{generate_token, verify_password, Authenticated};
 use crate::cert::{get_pem, save_ca, Certificate};
-use crate::data::api::{CallbackQuery, ChangePasswordRequest, CreateCertificateRequest, CreateUserRequest, DownloadResponse, IsSetupResponse, LoginRequest, LoginResponse, SetupRequest};
+use crate::data::api::{CallbackQuery, ChangePasswordRequest, CreateCertificateRequest, CreateUserRequest, DownloadResponse, IsSetupResponse, LoginRequest, SetupRequest};
 use crate::data::enums::UserRole;
 use crate::data::error::ApiError;
 use crate::helper::hash_password_string;
@@ -77,7 +77,7 @@ async fn create_user_certificate(
     payload: Json<CreateCertificateRequest>,
     authentication: Authenticated
 ) -> Result<Json<Certificate>, ApiError> {
-    if authentication.claims.role != UserRole::Admin { return Err(ApiError::Unauthorized(None)) }
+    if authentication.claims.role != UserRole::Admin { return Err(ApiError::Forbidden(None)) }
 
     let db = state.db.lock().await;
 
@@ -107,7 +107,7 @@ async fn download_certificate(
 ) -> Result<DownloadResponse, ApiError> {
     let db = state.db.lock().await;
     let (user_id, pkcs12) = db.get_user_pkcs12(id)?;
-    if user_id != authentication.claims.id { return Err(ApiError::Unauthorized(None)) }
+    if user_id != authentication.claims.id && authentication.claims.role != UserRole::Admin { return Err(ApiError::Forbidden(None)) }
     Ok(DownloadResponse::new(pkcs12, "user_certificate.p12"))
 }
 
@@ -117,7 +117,7 @@ async fn delete_user_cert(
     id: i64,
     authentication: Authenticated
 ) -> Result<(), ApiError> {
-    if authentication.claims.role != UserRole::Admin { return Err(ApiError::Unauthorized(None)) }
+    if authentication.claims.role != UserRole::Admin { return Err(ApiError::Forbidden(None)) }
     let db = state.db.lock().await;
     db.delete_user_cert(id)?;
     Ok(())
@@ -128,7 +128,7 @@ async fn fetch_settings(
     state: &State<AppState>,
     authentication: Authenticated
 ) -> Result<Json<FrontendSettings>, ApiError> {
-    if authentication.claims.role != UserRole::Admin { return Err(ApiError::Unauthorized(None)) }
+    if authentication.claims.role != UserRole::Admin { return Err(ApiError::Forbidden(None)) }
     let settings = state.settings.lock().await;
     let frontend_settings = FrontendSettings(settings.clone());
     Ok(Json(frontend_settings))
@@ -140,7 +140,7 @@ async fn update_settings(
     payload: Json<Settings>,
     authentication: Authenticated
 ) -> Result<(), ApiError> {
-    if authentication.claims.role != UserRole::Admin { return Err(ApiError::Unauthorized(None)) }
+    if authentication.claims.role != UserRole::Admin { return Err(ApiError::Forbidden(None)) }
     let mut settings = state.settings.lock().await;
     let mut oidc = state.oidc.lock().await;
 
@@ -209,28 +209,24 @@ async fn login(
     state: &State<AppState>,
     jar: &CookieJar<'_>,
     login_req_opt: Json<LoginRequest>
-) -> Result<Json<LoginResponse>, ApiError> {
-    if let Some(token_cookie) = jar.get_private("auth_token") {
-        let token = token_cookie.value().to_string();
-        return Ok(Json(LoginResponse { token }));
+) -> Result<(), ApiError> {
+    let settings = state.settings.lock().await;
+    let db = state.db.lock().await;
+    let user: User = db.get_user_by_email(&*login_req_opt.email).map_err(|_| ApiError::Unauthorized(Some("Invalid credentials".to_string())))?;
+    if let Some(password_hash) = user.password_hash {
+        verify_password(&password_hash, &*login_req_opt.password)?;
+        let jwt_key = settings.get_jwt_key()?;
+        let token = generate_token(&jwt_key, user.id, user.role)?;
+
+        let cookie = Cookie::build(("auth_token", token.clone()))
+            .secure(true)
+            .http_only(true)
+            .same_site(SameSite::Lax);
+        jar.add_private(cookie);
+
+        return Ok(());
     }
-
-    if let Some(password) = &login_req_opt.password {
-        if let Some(email) = &login_req_opt.email {
-            let settings = state.settings.lock().await;
-            let db = state.db.lock().await;
-            let user: User = db.get_user_by_email(email).map_err(|e| ApiError::BadRequest(e.to_string()))?;
-            if let Some(password_hash) = user.password_hash {
-                verify_password(&password_hash, password)?;
-                let jwt_key = settings.get_jwt_key()?;
-                let token = generate_token(&jwt_key, user.id, user.role)?;
-
-                return Ok(Json(LoginResponse { token }));
-            }
-        }
-    }
-
-    Err(ApiError::BadRequest("Password and auth token missing / invalid".to_string()))
+    Err(ApiError::Unauthorized(Some("Invalid credentials".to_string())))
 }
 
 #[post("/api/auth/change_password", data = "<change_pass_req>")]
@@ -266,7 +262,7 @@ async fn oidc_login(
             Ok(Redirect::to(url.to_string()))
 
         }
-        None => { Err(ApiError::Unauthorized(Some("OIDC not configured".to_string()))) },
+        None => { Err(ApiError::BadRequest("OIDC not configured".to_string())) },
     }
 }
 
@@ -297,7 +293,7 @@ async fn oidc_callback(
 
             Ok(Redirect::to("/overview?oidc=success"))
         }
-        None => { Err(ApiError::Unauthorized(Some("OIDC not configured".to_string()))) },
+        None => { Err(ApiError::BadRequest("OIDC not configured".to_string())) },
     }
 }
 
@@ -307,7 +303,6 @@ async fn get_current_user(
     authentication: Authenticated
 ) -> Result<Json<User>, ApiError> {
     let db = state.db.lock().await;
-    println!("{:?}", authentication.claims);
     let user = db.get_user(authentication.claims.id)?;
     Ok(Json(user))
 }
@@ -317,7 +312,7 @@ async fn get_users(
     state: &State<AppState>,
     authentication: Authenticated
 ) -> Result<Json<Vec<User>>, ApiError> {
-    if authentication.claims.role != UserRole::Admin { return Err(ApiError::Unauthorized(None)) }
+    if authentication.claims.role != UserRole::Admin { return Err(ApiError::Forbidden(None)) }
     let db = state.db.lock().await;
     let users = db.get_all_user()?;
     Ok(Json(users))
@@ -329,7 +324,7 @@ async fn create_user(
     payload: Json<CreateUserRequest>,
     authentication: Authenticated
 ) -> Result<Json<i64>, ApiError> {
-    if authentication.claims.role != UserRole::Admin { return Err(ApiError::Unauthorized(None)) }
+    if authentication.claims.role != UserRole::Admin { return Err(ApiError::Forbidden(None)) }
 
     let db = state.db.lock().await;
 
@@ -353,7 +348,7 @@ async fn update_user(
     payload: Json<User>,
     authentication: Authenticated
 ) -> Result<(), ApiError> {
-    if payload.id != authentication.claims.id && authentication.claims.role != UserRole::Admin { return Err(ApiError::Unauthorized(None)) }
+    if payload.id != authentication.claims.id && authentication.claims.role != UserRole::Admin { return Err(ApiError::Forbidden(None)) }
     let db = state.db.lock().await;
     Ok(db.update_user(&payload)?)
 }
@@ -364,7 +359,7 @@ async fn delete_user(
     id: i64,
     authentication: Authenticated
 ) -> Result<(), ApiError> {
-    if authentication.claims.role != UserRole::Admin { return Err(ApiError::Unauthorized(None)) }
+    if authentication.claims.role != UserRole::Admin { return Err(ApiError::Forbidden(None)) }
     let db = state.db.lock().await;
     db.delete_user(id)?;
     Ok(())
@@ -393,6 +388,7 @@ async fn rocket() -> _ {
 
     let cors = CorsOptions::default()
         .allowed_origins(AllowedOrigins::all())
+        .allow_credentials(true)
         .allowed_methods(
             vec![Method::Get, Method::Post, Method::Put, Method::Delete]
                 .into_iter()

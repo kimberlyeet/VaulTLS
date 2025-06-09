@@ -59,8 +59,8 @@ const router = createRouter({
                         return next({ name: 'FirstSetup' });
                     }
                     let urlParams = new URLSearchParams(window.location.search);
-                    if (urlParams.has('oidc')) {
-                        await authStore.login(undefined, undefined)
+                    if (urlParams.has('oidc', 'success')) {
+                        await authStore.finishOIDC();
                     }
 
                     if (!authStore.isAuthenticated) {

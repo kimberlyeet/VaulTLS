@@ -24,8 +24,8 @@ impl<'r> FromRequest<'r> for Authenticated {
     type Error = ();
 
     async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-        let token = match request.headers().get_one("Authorization") {
-            Some(h) if h.starts_with("Bearer ") => &h["Bearer ".len()..],
+        let token = match request.cookies().get_private("auth_token") {
+            Some(cookie) => cookie.value().to_string(),
             _ => return Outcome::Error((Status::Unauthorized, ())),
         };
 
@@ -42,7 +42,7 @@ impl<'r> FromRequest<'r> for Authenticated {
         let decoding_key = DecodingKey::from_secret(&jwt_key);
         let validation = Validation::default();
 
-        let claims = match decode::<Claims>(token, &decoding_key, &validation) {
+        let claims = match decode::<Claims>(&*token, &decoding_key, &validation) {
             Ok(c) => c.claims,
             Err(_) => return Outcome::Error((Status::Unauthorized, ())),
         };
