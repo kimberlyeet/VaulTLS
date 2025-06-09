@@ -45,6 +45,7 @@ export const useSettingseStore = defineStore('settings', {
         // Trigger the download of a certificate by ID
         async saveSettings(): Promise<void> {
             try {
+                this.error = null;
                 await putSettings(this.settings);
             } catch (err) {
                 this.error = 'Failed to download the certificate.';

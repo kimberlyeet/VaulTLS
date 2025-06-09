@@ -105,8 +105,6 @@ impl OidcAuth {
             .user_info(token_response.access_token().clone(), None)?
             .request_async(&self.http_client)
             .await?;
-        
-        println!("{:?}", userinfo);
 
         // Use claims from userinfo instead
         let oidc_id = userinfo.subject().to_string();

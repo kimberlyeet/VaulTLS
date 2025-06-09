@@ -33,6 +33,7 @@ export const useCertificateStore = defineStore('certificate', {
         // Trigger the download of a certificate by ID
         async downloadCertificate(id: number): Promise<void> {
             try {
+                this.error = null;
                 const data = await downloadCertificate(id);
                 const url = window.URL.createObjectURL(new Blob([data]));
                 const link = document.createElement('a');

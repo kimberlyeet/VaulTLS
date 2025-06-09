@@ -17,6 +17,7 @@ export const useAuthStore = defineStore('auth', {
     actions: {
         async init() {
             try {
+                this.error = null;
                 await this.is_setup();
                 if (this.token) {
                     await this.fetchCurrentUser();
@@ -29,6 +30,7 @@ export const useAuthStore = defineStore('auth', {
         },
         async login(email: string | undefined, password: string | undefined) {
             try {
+                this.error = null;
                 this.token = (await login({email, password})).token;
                 localStorage.setItem('auth_token', this.token);
                 this.current_user = (await current_user());
@@ -43,6 +45,7 @@ export const useAuthStore = defineStore('auth', {
         },
         async is_setup() {
             try {
+                this.error = null;
                 const isSetupResponse = (await is_setup());
                 this.password_auth = isSetupResponse.password;
                 this.oidc_url = isSetupResponse.oidc;
@@ -55,6 +58,7 @@ export const useAuthStore = defineStore('auth', {
         },
         async change_password(changePasswordReq: ChangePasswordReq) {
             try {
+                this.error = null;
                 await change_password(changePasswordReq);
                 this.password_auth = true;
                 return true;
@@ -66,6 +70,7 @@ export const useAuthStore = defineStore('auth', {
         },
         async fetchCurrentUser() {
             try {
+                this.error = null;
                 this.current_user = (await current_user());
                 this.isAuthenticated = true;
             } catch (err) {
@@ -74,6 +79,7 @@ export const useAuthStore = defineStore('auth', {
             }
         },
         logout() {
+            this.error = null;
             this.token = null;
             localStorage.removeItem('auth_token');
             this.isAuthenticated = false;

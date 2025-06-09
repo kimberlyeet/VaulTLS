@@ -124,7 +124,7 @@
       <div class="card-body">
         <h4 class="card-header">Change Password</h4>
         <form v-if="authStore.password_auth" @submit.prevent="changePassword">
-          <div class="mb-3">
+          <div v-if="authStore.current_user?.has_password" class="mb-3">
             <label for="old-password" class="form-label">Old Password</label>
             <input
                 id="old-password"
@@ -151,6 +151,10 @@
                 class="form-control"
             />
           </div>
+          <div v-if="password_error" class="alert alert-danger mt-3">
+            {{ password_error }}
+          </div>
+
           <button
               type="submit"
               class="btn btn-primary"
@@ -183,6 +187,14 @@
       </div>
     </div>
 
+    <!-- Error Messages -->
+    <div v-if="settings_error" class="alert alert-danger mt-3">
+      {{ settings_error }}
+    </div>
+    <div v-if="user_error" class="alert alert-danger mt-3">
+      {{ user_error }}
+    </div>
+
     <!-- Save Button -->
     <button class="btn btn-primary mt-3" @click="saveSettings">Save</button>
   </div>
@@ -208,6 +220,9 @@ export default defineComponent({
     const confirmPassword = ref('');
     const current_user = computed(() => authStore.current_user);
     const editableUser = ref<User | null>(null);
+    const settings_error = computed(() => settingsStore.error);
+    const user_error = computed(() => userStore.error);
+    const password_error = computed(() => authStore.error);
 
     const canChangePassword = computed(() =>
         changePasswordReq.value.newPassword === confirmPassword.value &&
@@ -228,17 +243,13 @@ export default defineComponent({
     };
 
     const saveSettings = async () => {
-      try {
-        if (current_user.value?.role == UserRole.Admin) {
-          await settingsStore.saveSettings();
-        }
+      if (current_user.value?.role == UserRole.Admin) {
+        await settingsStore.saveSettings();
+      }
 
-        if (editableUser.value) {
-          await userStore.updateUser(editableUser.value);
-          await authStore.fetchCurrentUser();
-        }
-      } catch (error) {
-        console.error('Failed to save settings:', error);
+      if (editableUser.value) {
+        await userStore.updateUser(editableUser.value);
+        await authStore.fetchCurrentUser();
       }
     }
 
@@ -261,7 +272,10 @@ export default defineComponent({
       canChangePassword,
       changePassword,
       authStore,
-      isAdmin
+      isAdmin,
+      settings_error,
+      user_error,
+      password_error
     };
   },
 });

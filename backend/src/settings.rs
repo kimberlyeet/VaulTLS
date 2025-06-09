@@ -118,8 +118,9 @@ impl Settings {
         self.save(None)
     }
 
-    pub fn get_jwt_key(&self) -> Vec<u8> {
-        base64::decode_block(self.auth.jwt_key.as_str()).expect("JWT key is malformed")
+    pub fn get_jwt_key(&self) -> Result<Vec<u8>, ApiError> {
+        base64::decode_block(self.auth.jwt_key.as_str())
+            .map_err(|_| ApiError::Other("Failed to decode jwt key".to_string()))
     }
 
     pub fn get_oidc(&self) -> &OIDC {

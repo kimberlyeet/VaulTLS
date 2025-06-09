@@ -44,7 +44,7 @@ struct User {
     id: i64,
     name: String,
     email: String,
-    #[serde(skip)]
+    #[serde(rename = "has_password", serialize_with = "helper::serialize_password_hash", skip_deserializing)]
     password_hash: Option<PasswordHashString>,
     #[serde(skip)]
     oidc_id: Option<String>,
@@ -219,17 +219,18 @@ async fn login(
         if let Some(email) = &login_req_opt.email {
             let settings = state.settings.lock().await;
             let db = state.db.lock().await;
-            let user: User = db.get_user_by_email(email)?;
+            let user: User = db.get_user_by_email(email).map_err(|e| ApiError::BadRequest(e.to_string()))?;
             if let Some(password_hash) = user.password_hash {
                 verify_password(&password_hash, password)?;
-                let token = generate_token(&settings.get_jwt_key(), user.id, user.role)?;
+                let jwt_key = settings.get_jwt_key()?;
+                let token = generate_token(&jwt_key, user.id, user.role)?;
 
                 return Ok(Json(LoginResponse { token }));
             }
         }
     }
 
-    Err(ApiError::Unauthorized(None))
+    Err(ApiError::BadRequest("Password and auth token missing / invalid".to_string()))
 }
 
 #[post("/api/auth/change_password", data = "<change_pass_req>")]
@@ -246,7 +247,7 @@ async fn change_password(
     if let Some(password_hash) = password_hash {
         match &change_pass_req.old_password {
             Some(old_password) => verify_password(&password_hash, old_password)?,
-            None => return Err(ApiError::Unauthorized(Some("Password is required".to_string())))
+            None => return Err(ApiError::BadRequest("Old password is required".to_string()))
         }
     }
 
@@ -285,7 +286,7 @@ async fn oidc_callback(
 
             db.register_oidc_user(&mut user)?;
 
-            let jwt_key = settings.get_jwt_key();
+            let jwt_key = settings.get_jwt_key()?;
             let token = generate_token(&jwt_key, user.id, user.role)?;
 
             let auth_cookie = Cookie::build(("auth_token", token))

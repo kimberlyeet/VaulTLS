@@ -1,6 +1,7 @@
 use argon2::{Argon2, PasswordHasher};
 use argon2::password_hash::rand_core::OsRng;
 use argon2::password_hash::{PasswordHashString, SaltString};
+use serde::Serializer;
 use crate::data::error::ApiError;
 
 pub fn hash_password(password: &String) -> Result<String, ApiError> {
@@ -19,4 +20,11 @@ pub fn hash_password_string(password: &Option<String>) -> Result<Option<Password
         },
         None => None,
     })
+}
+
+pub fn serialize_password_hash<S>(password_hash: &Option<PasswordHashString>, s: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    s.serialize_bool(password_hash.is_some())
 }

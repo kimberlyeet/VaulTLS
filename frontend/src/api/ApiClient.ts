@@ -14,11 +14,10 @@ class ApiClient {
             },
         });
 
-        // Request interceptor to add JWT to the headers
         this.client.interceptors.request.use(
             (config) => {
                 const authStore = useAuthStore();
-                const token = authStore.token; // Retrieve JWT from Pinia store
+                const token = authStore.token;
 
                 if (token) {
                     config.headers.Authorization = `Bearer ${token}`;
@@ -38,7 +37,7 @@ class ApiClient {
                 if (error.response && error.response.status === 401) {
                     const authStore = useAuthStore();
                     authStore.logout();
-                    window.location.href = '/login';
+                    window.location.href = '/';
                 }
                 return Promise.reject(error);
             }
