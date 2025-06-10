@@ -20,6 +20,7 @@ pub struct Certificate {
     pub(crate) name: String,
     pub(crate) created_on: i64,
     pub(crate) valid_until: i64,
+    pub(crate) user_id: i64,
     #[serde(skip)]
     pub(crate) pkcs12: Vec<u8>,
     #[serde(skip)]
@@ -97,6 +98,7 @@ pub fn create_user_cert(
     ca: &Certificate,
     name: &str,
     validity_in_years: u64,
+    user_id: i64
 ) -> Result<Certificate, ErrorStack> {
         let ca_cert = X509::from_der(&ca.cert)?;
         let ca_key = PKey::private_key_from_der(&ca.key)?;
@@ -155,6 +157,7 @@ pub fn create_user_cert(
             valid_until: valid_until_unix,
             pkcs12: pkcs12.to_der()?,
             ca_id: ca.id,
+            user_id,
             ..Default::default()
         })
 }

@@ -3,4 +3,5 @@ export interface Certificate {
     name: string;              // Certificate name
     created_on: string;        // Date when the certificate was created (UNIX timestamp)
     valid_until: string;       // Expiration date of the certificate (UNIX timestamp)
+    user_id: number;           // User ID who owns the certificate
 }

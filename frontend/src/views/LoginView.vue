@@ -1,8 +1,7 @@
 <template>
   <div class="container d-flex justify-content-center align-items-center vh-100">
     <div class="card p-4 shadow" style="max-width: 400px; width: 100%;">
-      <h1 class="text-center mb-4">Login</h1>
-
+      <img src="@/assets/logo.png" alt="Logo" class="w-50 d-block mx-auto mb-4">
       <form v-if="password_auth" @submit.prevent="submitLogin">
         <div class="mb-3">
           <label for="email" class="form-label">E-Mail</label>
@@ -45,7 +44,7 @@
 </template>
 
 <script lang="ts">
-import {computed, defineComponent, ref} from 'vue';
+import {computed, defineComponent, onMounted, ref} from 'vue';
 import { useAuthStore } from '../stores/auth';
 import router from "@/router/router.ts";
 
@@ -58,6 +57,12 @@ export default defineComponent({
     const authStore = useAuthStore();
     const password_auth = computed(() => authStore.password_auth);
     const oidc_url = computed(()  => authStore.oidc_url);
+
+    onMounted(async () => {
+      if (!authStore.isInitialized) {
+        await authStore.init();
+      }
+    });
 
     const submitLogin = async () => {
       loginError.value = '';

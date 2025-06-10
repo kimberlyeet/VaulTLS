@@ -93,8 +93,8 @@ impl CertificateDB {
 
     pub fn get_all_user_cert(&self, user_id: Option<i64>) -> Result<Vec<Certificate>, rusqlite::Error>{
         let query = match user_id {
-            Some(_) => "SELECT id, name, created_on, valid_until, pkcs12 FROM user_certificates WHERE user_id = ?1",
-            None => "SELECT id, name, created_on, valid_until, pkcs12 FROM user_certificates"
+            Some(_) => "SELECT id, name, created_on, valid_until, pkcs12, user_id FROM user_certificates WHERE user_id = ?1",
+            None => "SELECT id, name, created_on, valid_until, pkcs12, user_id FROM user_certificates"
         };
         let mut stmt = self.connection.prepare(query)?;
         let rows = match user_id {
@@ -108,6 +108,7 @@ impl CertificateDB {
                     created_on: row.get(2)?,
                     valid_until: row.get(3)?,
                     pkcs12: row.get(4)?,
+                    user_id: row.get(5)?,
                     ..Default::default()
                 })
             })
@@ -123,10 +124,10 @@ impl CertificateDB {
         )
     }
 
-    pub fn insert_user_cert(&self, cert: Certificate, user_id: i64) -> Result<i64, rusqlite::Error> {
+    pub fn insert_user_cert(&self, cert: Certificate) -> Result<i64, rusqlite::Error> {
         self.connection.execute(
             "INSERT INTO user_certificates (name, created_on, valid_until, pkcs12, ca_id, user_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![cert.name, cert.created_on, cert.valid_until, cert.pkcs12, cert.ca_id, user_id],
+            params![cert.name, cert.created_on, cert.valid_until, cert.pkcs12, cert.ca_id, cert.user_id],
         )?;
 
         Ok(self.connection.last_insert_rowid())

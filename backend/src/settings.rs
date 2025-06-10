@@ -7,11 +7,12 @@ use rocket::serde::json::serde_json;
 use rocket::serde::{Deserialize, Serialize};
 use rocket::serde::ser::SerializeStruct;
 use crate::ApiError;
+use crate::data::enums::MailEncryption;
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Settings {
     #[serde(default)]
-    mail: Mail,
+    pub mail: Mail,
     #[serde(default)]
     common: Common,
     #[serde(default)]
@@ -41,11 +42,18 @@ pub struct Common {
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Mail {
-    address: String,
-    username: Option<String>,
-    password: Option<String>,
-    from: String,
-    to: String
+    pub smtp_host: String,
+    pub smtp_port: u16,
+    pub encryption: MailEncryption,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub from: String
+}
+
+impl Mail {
+    pub fn is_valid(&self) -> bool {
+        self.smtp_host.len() > 0 && self.smtp_port > 0 && self.from.len() > 0
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone)]

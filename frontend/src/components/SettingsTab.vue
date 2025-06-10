@@ -27,14 +27,37 @@
       <h3>Mail</h3>
       <div class="card mt-3">
         <div class="card-body">
+          <div class="mb-3 row">
+            <div class="col-9">
+              <label for="mail-smtp-host" class="form-label">SMTP Host</label>
+              <input
+                  id="mail-smtp-host"
+                  v-model="settings.mail.smtp_host"
+                  type="text"
+                  class="form-control"
+              />
+            </div>
+            <div class="col-3">
+              <label for="mail-smtp-port" class="form-label">Port</label>
+              <input
+                  id="mail-smtp-port"
+                  v-model="settings.mail.smtp_port"
+                  type="number"
+                  class="form-control"
+              />
+            </div>
+          </div>
           <div class="mb-3">
-            <label for="mail-address" class="form-label">Address</label>
-            <input
-                id="mail-address"
-                v-model="settings.mail.address"
-                type="email"
-                class="form-control"
-            />
+            <label for="mail-encryption" class="form-label">Role</label>
+            <select
+                id="mail-encryption"
+                v-model="settings.mail.encryption"
+                class="form-select"
+            >
+              <option :value="Encryption.None">None</option>
+              <option :value="Encryption.TLS">TLS</option>
+              <option :value="Encryption.STARTTLS">STARTTLS</option>
+            </select>
           </div>
           <div class="mb-3">
             <label for="mail-username" class="form-label">Username</label>
@@ -59,15 +82,6 @@
             <input
                 id="mail-from"
                 v-model="settings.mail.from"
-                type="email"
-                class="form-control"
-            />
-          </div>
-          <div class="mb-3">
-            <label for="mail-to" class="form-label">To</label>
-            <input
-                id="mail-to"
-                v-model="settings.mail.to"
                 type="email"
                 class="form-control"
             />
@@ -206,9 +220,15 @@ import { useSettingseStore } from '@/stores/settings';
 import { useAuthStore } from '@/stores/auth';
 import {type User, UserRole} from "@/types/User.ts";
 import {useUserStore} from "@/stores/users.ts";
+import {Encryption} from "@/types/Settings.ts";
 
 export default defineComponent({
   name: 'SettingsTab',
+  computed: {
+    Encryption() {
+      return Encryption
+    }
+  },
   setup() {
     const settingsStore = useSettingseStore();
     const authStore = useAuthStore();

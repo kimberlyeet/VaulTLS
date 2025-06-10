@@ -20,6 +20,7 @@ use crate::data::api::{CallbackQuery, ChangePasswordRequest, CreateCertificateRe
 use crate::data::enums::UserRole;
 use crate::data::error::ApiError;
 use crate::helper::hash_password_string;
+use crate::notification::{notify, MailMessage};
 use crate::oidc_auth::OidcAuth;
 use crate::settings::FrontendSettings;
 
@@ -82,10 +83,23 @@ async fn create_user_certificate(
     let db = state.db.lock().await;
 
     let ca = db.get_current_ca()?;
-    let mut user_cert = cert::create_user_cert(&ca, &payload.cert_name, payload.validity_in_years.unwrap_or(1))?;
+    let mut user_cert = cert::create_user_cert(&ca, &payload.cert_name, payload.validity_in_years.unwrap_or(1), payload.user_id)?;
 
-    let id = db.insert_user_cert(user_cert.clone(), payload.user_id)?;
+    let id = db.insert_user_cert(user_cert.clone())?;
     user_cert.set_id(id);
+    
+    if Some(true) == payload.notify_user {
+        let settings = state.settings.lock().await;
+        let user = db.get_user(payload.user_id)?;
+        let mail = MailMessage{
+            to: format!("{} <{}>", user.name, user.email),
+            subject: "VaulTLS: A new certificate is available".to_string(),
+            username: user.name,
+            certificate: &user_cert
+        };
+
+        notify(mail, &settings.mail)?;
+    }
 
     Ok(Json(user_cert))
 }

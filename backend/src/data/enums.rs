@@ -21,3 +21,12 @@ impl FromSql for UserRole {
         }
     }
 }
+
+#[derive(Serialize_repr, Deserialize_repr, Clone, Debug, Copy, PartialEq, Eq, Default)]
+#[repr(u8)]
+pub(crate) enum MailEncryption {
+    #[default]
+    None = 0,
+    TLS = 1,
+    STARTTLS = 2
+}

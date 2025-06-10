@@ -15,7 +15,7 @@
         </thead>
         <tbody>
           <tr v-for="cert in certificates" :key="cert.id">
-            <td v-if="isAdmin">{{ userStore.idToName(cert.id) }}</td>
+            <td v-if="isAdmin">{{ userStore.idToName(cert.user_id) }}</td>
             <td>{{ cert.name }}</td>
             <td>{{ new Date(cert.created_on).toLocaleDateString() }}</td>
             <td>{{ new Date(cert.valid_until).toLocaleDateString() }}</td>
@@ -90,6 +90,18 @@
                   min="1"
                   placeholder="Enter validity period"
               />
+            </div>
+            <div class="mb-3 form-check form-switch">
+              <input
+                  type="checkbox"
+                  class="form-check-input"
+                  id="notify-user"
+                  v-model="certReq.notify_user"
+                  role="switch"
+              />
+              <label class="form-check-label" for="notify-user">
+                Notify User
+              </label>
             </div>
           </div>
           <div class="modal-footer">
@@ -180,6 +192,7 @@ export default defineComponent({
       cert_name: '',
       user_id: 0,
       validity_in_years: 1,
+      notify_user: false,
     });
     const isAdmin = computed(() => {
       return authStore.current_user !== null && authStore.current_user.role === UserRole.Admin;

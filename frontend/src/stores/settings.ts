@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import type { Settings } from '@/types/Settings';
+import {Encryption, type Settings} from '@/types/Settings';
 import {
     fetchSettings,
     putSettings
@@ -10,11 +10,12 @@ const defaultSettings: Settings = {
         password_enabled: false,
     },
     mail: {
-        address: '',
+        smtp_host: '',
+        smtp_port: 0,
+        encryption: Encryption.None,
         username: undefined,
         password: undefined,
         from: '',
-        to: '',
     },
     oidc: {
         id: '',

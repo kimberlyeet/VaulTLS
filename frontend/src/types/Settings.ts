@@ -1,13 +1,19 @@
+export enum Encryption {
+    None = 0,
+    TLS = 1,
+    STARTTLS = 2
+}
 export interface Settings {
     common: {
         password_enabled: boolean;
     },
     mail: {
-        address: string,
+        smtp_host: string,
+        smtp_port: number,
+        encryption: Encryption,
         username?: string,
         password?: string,
         from: string,
-        to: string;
     };
     oidc: {
         id: string,

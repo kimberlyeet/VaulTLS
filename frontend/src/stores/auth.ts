@@ -46,6 +46,7 @@ export const useAuthStore = defineStore('auth', {
             try {
                 this.error = null;
                 const isSetupResponse = (await is_setup());
+                console.log(isSetupResponse);
                 this.password_auth = isSetupResponse.password;
                 this.oidc_url = isSetupResponse.oidc;
                 this.isSetup = isSetupResponse.setup;
