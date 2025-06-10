@@ -19,7 +19,7 @@ use crate::data::api::{CallbackQuery, ChangePasswordRequest, CreateCertificateRe
 use crate::data::enums::UserRole;
 use crate::data::error::ApiError;
 use crate::helper::{hash_password, hash_password_string};
-use crate::notification::{notify, MailMessage};
+use crate::notification::{MailMessage, Mailer};
 use auth::oidc_auth::OidcAuth;
 use crate::auth::password_auth::verify_password;
 use crate::auth::session_auth::{generate_token, Authenticated};
@@ -39,7 +39,8 @@ mod constants;
 struct AppState {
     db: Arc<Mutex<CertificateDB>>,
     settings: Arc<Mutex<Settings>>,
-    oidc: Arc<Mutex<Option<OidcAuth>>>
+    oidc: Arc<Mutex<Option<OidcAuth>>>,
+    mailer: Arc<Mutex<Option<Mailer>>>
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -90,16 +91,20 @@ async fn create_user_certificate(
     db.insert_user_cert(&mut user_cert)?;
 
     if Some(true) == payload.notify_user {
-        let settings = state.settings.lock().await;
         let user = db.get_user(payload.user_id)?;
         let mail = MailMessage{
             to: format!("{} <{}>", user.name, user.email),
             subject: "VaulTLS: A new certificate is available".to_string(),
             username: user.name,
-            certificate: &user_cert
+            certificate: user_cert.clone()
         };
 
-        let _ = notify(mail, &settings.get_mail());
+        let mailer = state.mailer.clone();
+        tokio::spawn(async move {
+            if let Some(mailer) = &mut *mailer.lock().await {
+                let _ = mailer.send_email(mail).await;
+            }
+        });
     }
 
     Ok(Json(user_cert))
@@ -160,9 +165,16 @@ async fn update_settings(
     let mut oidc = state.oidc.lock().await;
 
     settings.set_settings(&payload)?;
-    
+
     if let Some(oidc) = &mut *oidc {
         oidc.update_config(&settings.get_oidc()).await?;
+    }
+
+    let mut mailer = state.mailer.lock().await;
+    if settings.get_mail().is_valid() {
+        *mailer = Mailer::new(settings.get_mail()).ok()
+    } else {
+        *mailer = None;
     }
 
     Ok(())
@@ -393,12 +405,23 @@ async fn rocket() -> _ {
     let settings = Settings::load_from_file(None).unwrap();
     settings.save_to_file(None).unwrap();
 
-    let oidc = OidcAuth::new(&settings.get_oidc()).await.ok();
+    let oidc_settings = settings.get_oidc();
+    let oidc = match oidc_settings.auth_url.is_empty() {
+        true => None,
+        false => OidcAuth::new(&settings.get_oidc()).await.ok()
+    };
+
+    let mail_settings = settings.get_mail();
+    let mailer = match mail_settings.is_valid() {
+        true => Mailer::new(mail_settings).ok(),
+        false => None
+    };
 
     let app_state = AppState {
         db: Arc::new(Mutex::new(db)),
         settings: Arc::new(Mutex::new(settings)),
         oidc: Arc::new(Mutex::new(oidc)),
+        mailer: Arc::new(Mutex::new(mailer))
     };
 
     let cors = CorsOptions::default()

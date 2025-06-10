@@ -34,7 +34,7 @@ impl OidcAuth {
         
         Ok(OidcAuth{ client_id, client_secret, callback_url, provider, http_client, oidc_state: Default::default() })
     }
-    
+
     /// Update struct when settings change
     pub(crate) async fn update_config(&mut self, oidc_config: &OIDC) -> Result<(), anyhow::Error> {
         *self = OidcAuth::new(oidc_config).await?;
@@ -68,7 +68,7 @@ impl OidcAuth {
 
         Ok(auth_url)
     }
-    
+
     /// Verify the callback code, which the client received from OIDC provider
     pub(crate) async fn verify_auth_code(&mut self, code: String, state: String) -> anyhow::Result<User> {
         if ! self.oidc_state.contains_key(&state) { return Err(anyhow!("State does not exist")) }
