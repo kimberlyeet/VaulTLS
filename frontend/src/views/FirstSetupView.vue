@@ -82,7 +82,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref } from 'vue';
+import {defineComponent, onMounted, ref} from 'vue';
 import router from '../router/router';
 import { setup } from "@/api/auth.ts";
 import { useAuthStore } from '@/stores/auth';
@@ -97,6 +97,12 @@ export default defineComponent({
     const ca_validity_in_years = ref(10);
     const password = ref('');
     const errorMessage = ref('');
+
+    onMounted(async () => {
+      if (!authStore.isInitialized) {
+        await authStore.init();
+      }
+    });
 
     const setupPassword = async () => {
       try {

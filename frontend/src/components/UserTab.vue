@@ -138,6 +138,7 @@
 import {defineComponent, onMounted, ref} from 'vue'
 import {type CreateUserRequest, UserRole} from '@/types/User'
 import {useUserStore} from "@/stores/users.ts";
+import {useCertificateStore} from "@/stores/certificates.ts";
 
 export default defineComponent({
   name: 'UserTab',
@@ -175,6 +176,8 @@ export default defineComponent({
     const handleDeleteUser = async (id: number) => {
       if (confirm('Are you sure you want to delete this user?')) {
         await userStore.deleteUser(id)
+        const certStore = useCertificateStore();
+        await certStore.fetchCertificates();
       }
     }
 
@@ -191,7 +194,6 @@ export default defineComponent({
 
 <style scoped>
 
-/* Modal overlay styles when modal is shown */
 :deep(.modal.show) {
   background-color: rgba(0, 0, 0, 0.5);
 }

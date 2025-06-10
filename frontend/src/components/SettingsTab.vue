@@ -6,7 +6,7 @@
     <div v-if="isAdmin" class="mb-3">
       <!-- Common Section -->
       <h3>Common</h3>
-      <div class="card mt-3">
+      <div class="card mt-3 mb-3">
         <div class="card-body">
           <div class="mb-3 form-check form-switch">
             <input
@@ -25,7 +25,7 @@
 
       <!-- Mail Section -->
       <h3>Mail</h3>
-      <div class="card mt-3">
+      <div class="card mt-3 mb-3">
         <div class="card-body">
           <div class="mb-3 row">
             <div class="col-9">
@@ -91,7 +91,7 @@
 
       <!-- OIDC Section -->
       <h3>OIDC</h3>
-      <div class="card mt-3">
+      <div class="card mt-3 mb-3">
         <div class="card-body">
           <div class="mb-3">
             <label for="oidc-id" class="form-label">Client ID</label>
@@ -134,7 +134,7 @@
     </div>
 
     <h2>User</h2>
-    <div class="card mt-5">
+    <div class="card mt-3 mb-3">
       <div class="card-body">
         <h4 class="card-header">Change Password</h4>
         <form v-if="authStore.password_auth" @submit.prevent="changePassword">

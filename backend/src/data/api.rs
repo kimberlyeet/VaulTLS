@@ -52,7 +52,6 @@ pub struct CreateCertificateRequest {
     pub notify_user: Option<bool>
 }
 
-// Define a custom responder
 pub struct DownloadResponse {
     pub content: Vec<u8>,
     pub filename: String,
@@ -67,6 +66,7 @@ impl DownloadResponse {
     }
 }
 
+//todo: respect filename
 impl<'r> Responder<'r, 'static> for DownloadResponse {
     fn respond_to(self, _req: &'r Request<'_>) -> rocket::response::Result<'static> {
         Response::build()

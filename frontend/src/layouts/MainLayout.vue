@@ -9,7 +9,6 @@
 
     <!-- Main Content -->
     <div class="container mt-4 flex-grow-1">
-      <!-- The child route's component (OverviewTab, GenerateTab, etc.) -->
       <router-view />
     </div>
   </div>
@@ -38,6 +37,6 @@ export default defineComponent({
 
 <style scoped>
 .container {
-  margin-left: 250px; /* Adjust based on your Sidebar width */
+  margin-left: 275px;
 }
 </style>

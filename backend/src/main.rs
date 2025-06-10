@@ -2,7 +2,7 @@
 extern crate rocket;
 
 use rocket::fairing::AdHoc;
-use rocket::http::{Method, CookieJar, Cookie, SameSite};
+use rocket::http::{Cookie, CookieJar, Method, SameSite};
 use rocket::serde::json::Json;
 use rocket::State;
 use std::sync::Arc;
@@ -14,24 +14,26 @@ use serde::{Deserialize, Serialize};
 use cert::create_ca;
 use db::CertificateDB;
 use settings::Settings;
-use crate::local_auth::{generate_token, verify_password, Authenticated};
 use crate::cert::{get_pem, save_ca, Certificate};
 use crate::data::api::{CallbackQuery, ChangePasswordRequest, CreateCertificateRequest, CreateUserRequest, DownloadResponse, IsSetupResponse, LoginRequest, SetupRequest};
 use crate::data::enums::UserRole;
 use crate::data::error::ApiError;
-use crate::helper::hash_password_string;
+use crate::helper::{hash_password, hash_password_string};
 use crate::notification::{notify, MailMessage};
-use crate::oidc_auth::OidcAuth;
+use auth::oidc_auth::OidcAuth;
+use crate::auth::password_auth::verify_password;
+use crate::auth::session_auth::{generate_token, Authenticated};
+use crate::constants::{API_PORT, DB_FILE_PATH};
 use crate::settings::FrontendSettings;
 
 mod db;
 mod cert;
 mod settings;
 mod notification;
-mod local_auth;
-mod oidc_auth;
 mod data;
 mod helper;
+mod auth;
+mod constants;
 
 #[derive(Clone)]
 struct AppState {
@@ -85,9 +87,8 @@ async fn create_user_certificate(
     let ca = db.get_current_ca()?;
     let mut user_cert = cert::create_user_cert(&ca, &payload.cert_name, payload.validity_in_years.unwrap_or(1), payload.user_id)?;
 
-    let id = db.insert_user_cert(user_cert.clone())?;
-    user_cert.set_id(id);
-    
+    db.insert_user_cert(&mut user_cert)?;
+
     if Some(true) == payload.notify_user {
         let settings = state.settings.lock().await;
         let user = db.get_user(payload.user_id)?;
@@ -98,7 +99,7 @@ async fn create_user_certificate(
             certificate: &user_cert
         };
 
-        notify(mail, &settings.mail)?;
+        let _ = notify(mail, &settings.get_mail());
     }
 
     Ok(Json(user_cert))
@@ -120,7 +121,7 @@ async fn download_certificate(
     authentication: Authenticated
 ) -> Result<DownloadResponse, ApiError> {
     let db = state.db.lock().await;
-    let (user_id, pkcs12) = db.get_user_pkcs12(id)?;
+    let (user_id, pkcs12) = db.get_user_cert_pkcs12(id)?;
     if user_id != authentication.claims.id && authentication.claims.role != UserRole::Admin { return Err(ApiError::Forbidden(None)) }
     Ok(DownloadResponse::new(pkcs12, "user_certificate.p12"))
 }
@@ -161,7 +162,7 @@ async fn update_settings(
     settings.set_settings(&payload)?;
     
     if let Some(oidc) = &mut *oidc {
-        oidc.update_config(settings.get_oidc()).await?;
+        oidc.update_config(&settings.get_oidc()).await?;
     }
 
     Ok(())
@@ -212,8 +213,7 @@ async fn setup(
 
     let mut ca = create_ca(&setup_req.ca_name, setup_req.ca_validity_in_years)?;
     save_ca(&ca)?;
-    let ca_id = db.insert_ca(&ca)?;
-    ca.set_id(ca_id);
+    db.insert_ca(&mut ca)?;
 
     Ok(())
 }
@@ -261,7 +261,8 @@ async fn change_password(
         }
     }
 
-    db.set_user_password(user_id, &change_pass_req.new_password)
+    let password_hash = hash_password(&change_pass_req.new_password)?;
+    db.set_user_password(user_id, &password_hash)
 }
 
 #[get("/api/auth/oidc/login")]
@@ -382,17 +383,17 @@ async fn delete_user(
 
 #[launch]
 async fn rocket() -> _ {
-    let db_path = std::path::Path::new("./certificates.db3");
+    let db_path = std::path::Path::new(DB_FILE_PATH);
     let db_initialized = db_path.exists();
     let db = CertificateDB::new(db_path).expect("Failed opening SQLite database.");
     if !db_initialized {
         db.initialize_db().expect("Failed initializing database");
     }
 
-    let settings = Settings::new(None).unwrap();
-    settings.save(None).unwrap();
+    let settings = Settings::load_from_file(None).unwrap();
+    settings.save_to_file(None).unwrap();
 
-    let oidc = OidcAuth::new(settings.get_oidc()).await.ok();
+    let oidc = OidcAuth::new(&settings.get_oidc()).await.ok();
 
     let app_state = AppState {
         db: Arc::new(Mutex::new(db)),
@@ -412,7 +413,7 @@ async fn rocket() -> _ {
         .allow_credentials(true);
 
     rocket::build()
-        .configure(rocket::Config::figment().merge(("port", 3737)))
+        .configure(rocket::Config::figment().merge(("port", API_PORT)))
         .manage(app_state)
         .mount(
             "/",

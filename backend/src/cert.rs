@@ -13,9 +13,13 @@ use openssl::x509::{X509NameBuilder, X509};
 use openssl::x509::extension::{BasicConstraints, KeyUsage, SubjectKeyIdentifier};
 use openssl::x509::X509Builder;
 use crate::ApiError;
+use crate::constants::CA_FILE_PATH;
 
 #[derive(Default, Clone, rocket::serde::Serialize)]
-pub struct Certificate {
+/// Certificate can be either CA or user certificate.
+/// Iff CA, cert and key must be set.
+/// Iff user cert, pkcs12 must be set.
+pub(crate) struct Certificate {
     pub(crate) id: i64,
     pub(crate) name: String,
     pub(crate) created_on: i64,
@@ -31,13 +35,8 @@ pub struct Certificate {
     pub(crate) ca_id: i64,
 }
 
-impl Certificate {
-    pub fn set_id(&mut self, id: i64) -> () {
-        self.id = id;
-    }
-}
-
-pub fn create_ca(
+/// Creates a new CA certificate.
+pub(crate) fn create_ca(
     ca_name: &str,
     ca_validity_in_years: u64
 ) -> Result<Certificate, ErrorStack> {
@@ -94,7 +93,8 @@ pub fn create_ca(
     })
 }
 
-pub fn create_user_cert(
+/// Creates a new user certificate.
+pub(crate) fn create_user_cert(
     ca: &Certificate,
     name: &str,
     validity_in_years: u64,
@@ -162,6 +162,7 @@ pub fn create_user_cert(
         })
 }
 
+/// Returns the current UNIX timestamp in milliseconds and an OpenSSL Asn1Time object.
 fn get_timestamp(from_now_in_years: u64) -> Result<(i64, Asn1Time), ErrorStack> {
     let time = SystemTime::now() + std::time::Duration::from_secs(60 * 60 * 24 * 365 * from_now_in_years);
     let time_unix = time.duration_since(UNIX_EPOCH).unwrap().as_millis() as i64;
@@ -170,13 +171,15 @@ fn get_timestamp(from_now_in_years: u64) -> Result<(i64, Asn1Time), ErrorStack> 
     Ok((time_unix, time_openssl))
 }
 
-pub fn get_pem(ca: &Certificate) -> Result<Vec<u8>, ErrorStack> {
+/// Convert a CA certificate to PEM format.
+pub(crate) fn get_pem(ca: &Certificate) -> Result<Vec<u8>, ErrorStack> {
     let cert = X509::from_der(&ca.cert)?;
     cert.to_pem()
 }
 
-pub fn save_ca(ca: &Certificate) -> Result<(), ApiError> {
+/// Saves the CA certificate to a file for filesystem access.
+pub(crate) fn save_ca(ca: &Certificate) -> Result<(), ApiError> {
     let pem = get_pem(ca)?;
-    fs::write("ca.cert", pem).map_err(|e| ApiError::Other(e.to_string()))?;
+    fs::write(CA_FILE_PATH, pem).map_err(|e| ApiError::Other(e.to_string()))?;
     Ok(())
 }

@@ -5,22 +5,21 @@ use argon2::password_hash::PasswordHashString;
 use rusqlite::{params, Connection, Result};
 use crate::{ApiError, Certificate, User};
 use crate::data::enums::UserRole;
-use crate::helper::hash_password;
 
-pub struct CertificateDB {
+pub(crate) struct CertificateDB {
     connection: Connection
 }
 
 impl CertificateDB {
-    // Initialize the database
-    pub fn new(db_path: &Path) -> Result<Self> {
+    pub(crate) fn new(db_path: &Path) -> Result<Self> {
         let connection = Connection::open(db_path)?;
         connection.execute("PRAGMA foreign_keys = ON", [])?;
 
         Ok(Self { connection })
     }
 
-    pub fn initialize_db(&self) -> Result<(), Box<dyn std::error::Error>> {
+    /// Initialize the database with the required tables
+    pub(crate) fn initialize_db(&self) -> Result<(), Box<dyn std::error::Error>> {
         self.connection.execute(
             "CREATE TABLE ca_certificates (
                 id INTEGER PRIMARY KEY,
@@ -62,23 +61,26 @@ impl CertificateDB {
         Ok(())
     }    
 
-    pub fn insert_ca(
+    /// Insert a new CA certificate into the database
+    /// Adds id to the Certificate struct
+    pub(crate) fn insert_ca(
         &self,
-        ca: &Certificate
-    ) -> Result<i64, rusqlite::Error> {
+        ca: &mut Certificate
+    ) -> Result<(), rusqlite::Error> {
         self.connection.execute(
             "INSERT INTO ca_certificates (created_on, valid_until, certificate, key) VALUES (?1, ?2, ?3, ?4)",
             params![ca.created_on, ca.valid_until, ca.cert, ca.key],
         )?;
+        
+        ca.ca_id = self.connection.last_insert_rowid();
 
-        Ok(self.connection.last_insert_rowid())
+        Ok(())
     }
 
-    pub fn get_current_ca(&self) -> Result<Certificate, rusqlite::Error> {
-        // Query to fetch the last row
+    /// Retrieve the most recent CA entry from the database
+    pub(crate) fn get_current_ca(&self) -> Result<Certificate, rusqlite::Error> {
         let mut stmt = self.connection.prepare("SELECT * FROM ca_certificates ORDER BY id DESC LIMIT 1")?;
-    
-        // Execute the query and retrieve the row
+
         stmt.query_row([], |row| {
             Ok(Certificate{
                 id: row.get(0)?,
@@ -91,7 +93,10 @@ impl CertificateDB {
         })
     }
 
-    pub fn get_all_user_cert(&self, user_id: Option<i64>) -> Result<Vec<Certificate>, rusqlite::Error>{
+    /// Retrieve all user certificates from the database
+    /// If user_id is Some, only certificates for that user are returned
+    /// If user_id is None, all certificates are returned
+    pub(crate) fn get_all_user_cert(&self, user_id: Option<i64>) -> Result<Vec<Certificate>, rusqlite::Error>{
         let query = match user_id {
             Some(_) => "SELECT id, name, created_on, valid_until, pkcs12, user_id FROM user_certificates WHERE user_id = ?1",
             None => "SELECT id, name, created_on, valid_until, pkcs12, user_id FROM user_certificates"
@@ -115,7 +120,9 @@ impl CertificateDB {
             .collect()
     }
 
-    pub fn get_user_pkcs12(&self, id: i64) -> Result<(i64, Vec<u8>), rusqlite::Error> {
+    /// Retrieve the certificate's PKCS12 data with id from the database
+    /// Returns the id of the user the certificate belongs to and the PKCS12 data
+    pub(crate) fn get_user_cert_pkcs12(&self, id: i64) -> Result<(i64, Vec<u8>), rusqlite::Error> {
         let mut stmt = self.connection.prepare("SELECT user_id, pkcs12 FROM user_certificates WHERE id = ?1")?;
 
         stmt.query_row(
@@ -124,16 +131,21 @@ impl CertificateDB {
         )
     }
 
-    pub fn insert_user_cert(&self, cert: Certificate) -> Result<i64, rusqlite::Error> {
+    /// Insert a new certificate into the database
+    /// Adds id to Certificate struct
+    pub(crate) fn insert_user_cert(&self, cert: &mut Certificate) -> Result<(), rusqlite::Error> {
         self.connection.execute(
             "INSERT INTO user_certificates (name, created_on, valid_until, pkcs12, ca_id, user_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![cert.name, cert.created_on, cert.valid_until, cert.pkcs12, cert.ca_id, cert.user_id],
         )?;
+        
+        cert.id = self.connection.last_insert_rowid();
 
-        Ok(self.connection.last_insert_rowid())
+        Ok(())
     }
 
-    pub fn delete_user_cert(&self, id: i64) -> Result<(), rusqlite::Error> {
+    /// Delete a certificate from the database
+    pub(crate) fn delete_user_cert(&self, id: i64) -> Result<(), rusqlite::Error> {
         self.connection.execute(
             "DELETE FROM user_certificates WHERE id=?1",
             params![id]
@@ -142,7 +154,8 @@ impl CertificateDB {
         Ok(())
     }
 
-    pub fn add_user(&self, user: &mut User) -> Result<(), ApiError> {
+    /// Add a new user to the database
+    pub(crate) fn add_user(&self, user: &mut User) -> Result<(), ApiError> {
         self.connection.execute(
             "INSERT INTO users (name, email, password_hash, oidc_id, role) VALUES (?1, ?2, ?3, ?4, ?5)",
             params![user.name, user.email, user.password_hash.clone().map(|hash| hash.to_string()), user.oidc_id, user.role as u8],
@@ -152,7 +165,8 @@ impl CertificateDB {
         Ok(())
     }
 
-    pub fn delete_user(&self, id: i64) -> Result<(), rusqlite::Error> {
+    /// Delete a user from the database
+    pub(crate) fn delete_user(&self, id: i64) -> Result<(), rusqlite::Error> {
         self.connection.execute(
             "DELETE FROM users WHERE id=?1",
             params![id]
@@ -161,7 +175,8 @@ impl CertificateDB {
         Ok(())
     }
 
-    pub fn update_user(&self, user: &User) -> Result<(), rusqlite::Error> {
+    /// Update a user in the database
+    pub(crate) fn update_user(&self, user: &User) -> Result<(), rusqlite::Error> {
         self.connection.execute(
             "UPDATE users SET name = ?1, email =?2 WHERE id=?3",
             params![user.name, user.email, user.id]
@@ -170,7 +185,8 @@ impl CertificateDB {
         Ok(())
     }
 
-    pub fn get_user(&self, id: i64) -> Result<User, rusqlite::Error> {
+    /// Return a user entry by id from the database
+    pub(crate) fn get_user(&self, id: i64) -> Result<User, rusqlite::Error> {
         self.connection.query_row(
             "SELECT id, name, email, password_hash, oidc_id, role FROM users WHERE id=?1",
             params![id],
@@ -193,7 +209,8 @@ impl CertificateDB {
         )
     }
 
-    pub fn get_user_by_email(&self, email: &str) -> Result<User, ApiError> {
+    /// Return a user entry by email from the database
+    pub(crate) fn get_user_by_email(&self, email: &str) -> Result<User, ApiError> {
         self.connection.query_row(
             "SELECT id, name, email, password_hash, oidc_id, role FROM users WHERE email=?1",
             params![email],
@@ -212,7 +229,8 @@ impl CertificateDB {
         ).map_err(|_| ApiError::Database(rusqlite::Error::QueryReturnedNoRows))
     }
 
-    pub fn get_all_user(&self) -> Result<Vec<User>, rusqlite::Error>{
+    /// Return all users from the database
+    pub(crate) fn get_all_user(&self) -> Result<Vec<User>, rusqlite::Error>{
         let mut stmt = self.connection.prepare("SELECT id, name, email, role FROM users")?;
         let query = stmt.query([])?;
         query.map(|row| {
@@ -228,9 +246,9 @@ impl CertificateDB {
             .collect()
     }
 
-    pub fn set_user_password(&self, id: i64, password: &String) -> Result<(), ApiError> {
-        let password_hash = hash_password(password)?;
-
+    /// Set a new password for a user
+    /// The password needs to be hashed already
+    pub(crate) fn set_user_password(&self, id: i64, password_hash: &String) -> Result<(), ApiError> {
         self.connection.execute(
             "UPDATE users SET password_hash = ?1 WHERE id=?2",
             params![password_hash, id]
@@ -239,7 +257,13 @@ impl CertificateDB {
         Ok(())
     }
 
-    pub fn register_oidc_user(&self, user: &mut User) -> Result<(), ApiError> {
+    /// Register a user with an OIDC ID:
+    /// If the user does not exist, a new user is created.
+    /// If the user already exists and has matching OIDC ID, nothing is done.
+    /// If the user already exists but has no OIDC ID, the OIDC ID is added.
+    /// If the user already exists but has a different OIDC ID, an error is returned.
+    /// The function adds the user id and role to the User struct
+    pub(crate) fn register_oidc_user(&self, user: &mut User) -> Result<(), ApiError> {
         let existing_oidc_user_option: Option<(i64, UserRole)> = self.connection.query_row(
             "SELECT id, role FROM users WHERE oidc_id=?1",
             params![user.oidc_id],
@@ -285,7 +309,10 @@ impl CertificateDB {
         }
     }
 
-    pub fn is_setup(&self) -> bool {
+    /// Check if the database is setup
+    /// Returns true if the database contains at least one user
+    /// Returns false if the database is empty
+    pub(crate) fn is_setup(&self) -> bool {
         self.connection.query_row(
             "SELECT id FROM users",
             [],

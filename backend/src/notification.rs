@@ -1,25 +1,26 @@
 use anyhow::anyhow;
+use chrono::prelude::*;
 use lettre::{Message, SmtpTransport, Transport};
 use lettre::transport::smtp::client::{Tls, TlsParameters};
-use chrono::prelude::*;
 use lettre::message::{header, MultiPart, SinglePart};
 use lettre::transport::smtp::authentication::Credentials;
+use maud::{html, Markup};
 use crate::data::enums::MailEncryption;
 use crate::settings::Mail;
-
-pub struct MailMessage<'a> {
-    pub to: String,
-    pub subject: String,
-    pub username: String,
-    pub certificate: &'a Certificate
-}
-
-use maud::{html, Markup};
 use crate::cert::Certificate;
 
+/// A struct representing the message to be sent to the user
+pub(crate) struct MailMessage<'a> {
+    pub(crate) to: String,
+    pub(crate) subject: String,
+    pub(crate) username: String,
+    pub(crate) certificate: &'a Certificate
+}
+
+/// Generates the HTML content of the email
 fn generate_certificate_email(message: &MailMessage, instance_url: &str) -> Markup {
-    let datetime_created_on = DateTime::from_timestamp(message.certificate.created_on, 0).unwrap();
-    let datetime_valid_until = DateTime::from_timestamp(message.certificate.created_on, 0).unwrap();
+    let datetime_created_on = DateTime::from_timestamp(message.certificate.created_on / 1000, 0).unwrap();
+    let datetime_valid_until = DateTime::from_timestamp(message.certificate.created_on / 1000, 0).unwrap();
     let created_on = datetime_created_on.format("%Y-%m-%d %H:%M:%S").to_string();
     let valid_until = datetime_valid_until.format("%Y-%m-%d %H:%M:%S").to_string();
 
@@ -78,7 +79,8 @@ fn generate_certificate_email(message: &MailMessage, instance_url: &str) -> Mark
     }
 }
 
-pub fn notify(message: MailMessage, server: &Mail) -> Result<(), anyhow::Error>{
+/// Sends an email to the user with the certificate details
+pub(crate) fn notify(message: MailMessage, server: &Mail) -> Result<(), anyhow::Error>{
     if !server.is_valid() { return Err(anyhow!("Invalid mail server configuration"))}
 
     let html_content = generate_certificate_email(

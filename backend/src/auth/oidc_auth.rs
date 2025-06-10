@@ -7,8 +7,9 @@ use openidconnect::{reqwest, AccessTokenHash, AuthorizationCode, ClientId, Clien
 use crate::User;
 use crate::data::enums::UserRole;
 
+/// OIDC authentication
 #[derive(Debug)]
-pub struct OidcAuth {
+pub(crate) struct OidcAuth {
     client_id: ClientId,
     client_secret: Option<ClientSecret>,
     callback_url: RedirectUrl,
@@ -18,7 +19,8 @@ pub struct OidcAuth {
 }
 
 impl OidcAuth {
-    pub async fn new(oidc_config: &OIDC) -> Result<Self, anyhow::Error> {
+    /// Populate struct from settings
+    pub(crate) async fn new(oidc_config: &OIDC) -> Result<Self, anyhow::Error> {
         let client_id = ClientId::new(oidc_config.id.clone());
         let client_secret = Some(ClientSecret::new(oidc_config.secret.clone()));
         let issuer_url = IssuerUrl::new(oidc_config.auth_url.clone())?;
@@ -32,13 +34,15 @@ impl OidcAuth {
         
         Ok(OidcAuth{ client_id, client_secret, callback_url, provider, http_client, oidc_state: Default::default() })
     }
-
-    pub async fn update_config(&mut self, oidc_config: &OIDC) -> Result<(), anyhow::Error> {
+    
+    /// Update struct when settings change
+    pub(crate) async fn update_config(&mut self, oidc_config: &OIDC) -> Result<(), anyhow::Error> {
         *self = OidcAuth::new(oidc_config).await?;
         Ok(())
     }
 
-    pub async fn generate_oidc_url(&mut self) -> Result<Url, anyhow::Error> {
+    /// Generate OIDC authentication URL
+    pub(crate) async fn generate_oidc_url(&mut self) -> Result<Url, anyhow::Error> {
         let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
 
         let client = CoreClient::from_provider_metadata(
@@ -64,8 +68,9 @@ impl OidcAuth {
 
         Ok(auth_url)
     }
-
-    pub async fn verify_auth_code(&mut self, code: String, state: String) -> anyhow::Result<User> {
+    
+    /// Verify the callback code, which the client received from OIDC provider
+    pub(crate) async fn verify_auth_code(&mut self, code: String, state: String) -> anyhow::Result<User> {
         if ! self.oidc_state.contains_key(&state) { return Err(anyhow!("State does not exist")) }
         let (stored_pkce, stored_nonce) = self.oidc_state.remove(&state).unwrap();
 

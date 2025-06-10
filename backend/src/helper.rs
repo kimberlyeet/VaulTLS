@@ -4,6 +4,7 @@ use argon2::password_hash::{PasswordHashString, SaltString};
 use serde::Serializer;
 use crate::data::error::ApiError;
 
+/// Hashes a password using Argon2
 pub fn hash_password(password: &String) -> Result<String, ApiError> {
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
@@ -12,6 +13,9 @@ pub fn hash_password(password: &String) -> Result<String, ApiError> {
         .map_err(|_| ApiError::Other("Failed to hash password".to_string()))?
         .to_string())
 }
+
+/// Hashes a password using Argon2 and returns it as a PasswordHashString
+/// Returns None if the password is None
 pub fn hash_password_string(password: &Option<String>) -> Result<Option<PasswordHashString>, ApiError> {
     Ok(match password {
         Some(password) => {
@@ -22,6 +26,7 @@ pub fn hash_password_string(password: &Option<String>) -> Result<Option<Password
     })
 }
 
+/// Serializes a PasswordHashString to a boolean
 pub fn serialize_password_hash<S>(password_hash: &Option<PasswordHashString>, s: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
