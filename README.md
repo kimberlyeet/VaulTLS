@@ -1,4 +1,4 @@
-![VaulTLS Logo](https://github.com/7ritn/VaulTLS/blob/main/frontend/src/assets/logoText.png)
+![VaulTLS Logo](https://github.com/7ritn/VaulTLS/blob/main/assets/logoText.png)
 
 VaulTLS is a modern solution for managing mTLS (mutual TLS) certificates with ease.
 It provides a centralized platform for generating, managing, and distributing client TLS certificates for your home lab.
@@ -15,6 +15,10 @@ I also did not have an overview about the expiration of individual certificates.
 - 🚀 RESTful API for automation
 - 🛠 Docker/Podman container support
 - ⚡ Built with Rust (backend) and Vue.js (frontend) for performance and reliability
+
+## Screenshots
+![WebUI Overview](https://github.com/7ritn/VaulTLS/blob/main/assets/screenshot_overview.jpg)
+![WebUI Users](https://github.com/7ritn/VaulTLS/blob/main/assets/screenshot_user.jpg)
 
 ## Installation
 Installation is managed through a Container. The app *needs* to be behind a reverse proxy for TLS handling.
