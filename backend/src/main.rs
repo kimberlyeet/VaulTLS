@@ -417,7 +417,7 @@ async fn rocket() -> _ {
         true => Mailer::new(mail_settings, settings.get_vaultls_url()).ok(),
         false => None
     };
-    let rocket_secret = env::var("VAULTLS_API_KEY").expect("VAULTS_API_KEY is not set");
+    let rocket_secret = env::var("VAULTLS_API_SECRET").expect("VAULTS_API_SECRET is not set");
     unsafe { env::set_var("ROCKET_SECRET_KEY", rocket_secret) }
 
     let app_state = AppState {
