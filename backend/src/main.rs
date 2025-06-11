@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate rocket;
 
+use std::env;
 use rocket::fairing::AdHoc;
 use rocket::http::{Cookie, CookieJar, Method, SameSite};
 use rocket::serde::json::Json;
@@ -12,7 +13,7 @@ use rocket::tokio::sync::Mutex;
 use rocket_cors::{AllowedOrigins, CorsOptions};
 use serde::{Deserialize, Serialize};
 use cert::create_ca;
-use db::CertificateDB;
+use db::VaulTLSDB;
 use settings::Settings;
 use crate::cert::{get_pem, save_ca, Certificate};
 use crate::data::api::{CallbackQuery, ChangePasswordRequest, CreateCertificateRequest, CreateUserRequest, DownloadResponse, IsSetupResponse, LoginRequest, SetupRequest};
@@ -37,7 +38,7 @@ mod constants;
 
 #[derive(Clone)]
 struct AppState {
-    db: Arc<Mutex<CertificateDB>>,
+    db: Arc<Mutex<VaulTLSDB>>,
     settings: Arc<Mutex<Settings>>,
     oidc: Arc<Mutex<Option<OidcAuth>>>,
     mailer: Arc<Mutex<Option<Mailer>>>
@@ -398,7 +399,7 @@ async fn delete_user(
 async fn rocket() -> _ {
     let db_path = std::path::Path::new(DB_FILE_PATH);
     let db_initialized = db_path.exists();
-    let db = CertificateDB::new(db_path).expect("Failed opening SQLite database.");
+    let db = VaulTLSDB::new(db_path).expect("Failed opening SQLite database.");
     if !db_initialized {
         db.initialize_db().expect("Failed initializing database");
     }
@@ -416,6 +417,8 @@ async fn rocket() -> _ {
         true => Mailer::new(mail_settings, settings.get_vaultls_url()).ok(),
         false => None
     };
+    let rocket_secret = env::var("VAULTLS_API_KEY").expect("VAULTS_API_KEY is not set");
+    unsafe { env::set_var("ROCKET_SECRET_KEY", rocket_secret) }
 
     let app_state = AppState {
         db: Arc::new(Mutex::new(db)),

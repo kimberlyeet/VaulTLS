@@ -1,3 +1,5 @@
+use std::fs;
+use std::os::unix::fs::PermissionsExt;
 use rusqlite::fallible_iterator::FallibleIterator;
 use std::path::Path;
 use std::str::FromStr;
@@ -6,14 +8,18 @@ use rusqlite::{params, Connection, Result};
 use crate::{ApiError, Certificate, User};
 use crate::data::enums::UserRole;
 
-pub(crate) struct CertificateDB {
+pub(crate) struct VaulTLSDB {
     connection: Connection
 }
 
-impl CertificateDB {
+impl VaulTLSDB {
     pub(crate) fn new(db_path: &Path) -> Result<Self> {
         let connection = Connection::open(db_path)?;
         connection.execute("PRAGMA foreign_keys = ON", [])?;
+
+        let mut perms = fs::metadata(db_path).unwrap().permissions();
+        perms.set_mode(0o600);
+        fs::set_permissions(db_path, perms).unwrap();
 
         Ok(Self { connection })
     }
