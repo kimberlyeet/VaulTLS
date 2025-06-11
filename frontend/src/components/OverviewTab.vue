@@ -91,7 +91,7 @@
                   placeholder="Enter validity period"
               />
             </div>
-            <div class="mb-3 form-check form-switch">
+            <div v-if="isMailValid" class="mb-3 form-check form-switch">
               <input
                   type="checkbox"
                   class="form-check-input"
@@ -169,6 +169,7 @@ import type { CertificateRequirements } from "@/types/CertificateRequirements";
 import {useAuthStore} from "@/stores/auth.ts";
 import {UserRole} from "@/types/User.ts";
 import {useUserStore} from "@/stores/users.ts";
+import {useSettingsStore} from "@/stores/settings.ts";
 
 export default defineComponent({
   name: 'OverviewTab',
@@ -177,6 +178,7 @@ export default defineComponent({
     const certificateStore = useCertificateStore();
     const authStore = useAuthStore();
     const userStore = useUserStore();
+    const settingStore = useSettingsStore();
 
     const certificates = computed(() => certificateStore.certificates);
     const loading = computed(() => certificateStore.loading);
@@ -197,6 +199,9 @@ export default defineComponent({
     const isAdmin = computed(() => {
       return authStore.current_user !== null && authStore.current_user.role === UserRole.Admin;
     });
+    const isMailValid = computed(() => {
+      return settingStore.settings.mail.smtp_host.length > 0 && settingStore.settings.mail.smtp_port > 0;
+    })
 
 
     // Fetch certificates when the component is mounted
@@ -263,6 +268,7 @@ export default defineComponent({
       showGenerateModal,
       closeGenerateModal,
       isGenerateModalVisible,
+      isMailValid
     };
   },
 });

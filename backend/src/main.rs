@@ -164,15 +164,16 @@ async fn update_settings(
     let mut settings = state.settings.lock().await;
     let mut oidc = state.oidc.lock().await;
 
-    settings.set_settings(&payload)?;
+    settings.set_settings(&payload).await?;
 
     if let Some(oidc) = &mut *oidc {
         oidc.update_config(&settings.get_oidc()).await?;
     }
 
     let mut mailer = state.mailer.lock().await;
-    if settings.get_mail().is_valid() {
-        *mailer = Mailer::new(settings.get_mail()).ok()
+    let mail_settings = settings.get_mail();
+    if mail_settings.is_valid() {
+        *mailer = Mailer::new(mail_settings, settings.get_vaultls_url()).ok()
     } else {
         *mailer = None;
     }
@@ -402,8 +403,7 @@ async fn rocket() -> _ {
         db.initialize_db().expect("Failed initializing database");
     }
 
-    let settings = Settings::load_from_file(None).unwrap();
-    settings.save_to_file(None).unwrap();
+    let settings = Settings::load_from_file(None).await.expect("Failed loading settings");
 
     let oidc_settings = settings.get_oidc();
     let oidc = match oidc_settings.auth_url.is_empty() {
@@ -413,7 +413,7 @@ async fn rocket() -> _ {
 
     let mail_settings = settings.get_mail();
     let mailer = match mail_settings.is_valid() {
-        true => Mailer::new(mail_settings).ok(),
+        true => Mailer::new(mail_settings, settings.get_vaultls_url()).ok(),
         false => None
     };
 

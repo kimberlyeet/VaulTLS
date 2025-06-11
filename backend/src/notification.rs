@@ -11,6 +11,7 @@ use crate::cert::Certificate;
 pub(crate) struct Mailer{
     mailer: AsyncSmtpTransport<Tokio1Executor>,
     from: Mailbox,
+    vaultls_url: String,
 }
 
 /// A struct representing the message to be sent to the user
@@ -22,7 +23,7 @@ pub(crate) struct MailMessage {
 }
 
 impl Mailer {
-    pub fn new(server: &Mail) -> Result<Self, anyhow::Error> {
+    pub fn new(server: &Mail, vaultls_url: &str) -> Result<Self, anyhow::Error> {
         let mut mail_builder = match server.encryption {
             MailEncryption::None => AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(server.smtp_host.clone()).port(server.smtp_port),
             MailEncryption::TLS => {
@@ -44,14 +45,15 @@ impl Mailer {
 
         Ok(Self {
             mailer,
-            from: server.from.parse().unwrap(),
+            from: server.from.parse()?,
+            vaultls_url: vaultls_url.to_string(),
         })
     }
 
     pub async fn send_email(&self, message: MailMessage) -> Result<(), anyhow::Error> {
         let html_content = generate_certificate_email(
             &message,
-            "http://localhost:5173",
+            &self.vaultls_url
         ).into_string();
 
 

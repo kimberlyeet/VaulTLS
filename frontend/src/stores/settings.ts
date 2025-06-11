@@ -8,6 +8,7 @@ import {
 const defaultSettings: Settings = {
     common: {
         password_enabled: false,
+        vaultls_url: '',
     },
     mail: {
         smtp_host: '',

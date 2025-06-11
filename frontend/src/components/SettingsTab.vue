@@ -20,6 +20,15 @@
               Password Login enabled
             </label>
           </div>
+          <div class="mb-3">
+            <label for="common-vaultls-url" class="form-label">VaulTLS URL</label>
+            <input
+                id="common-vaultls-url"
+                v-model="settings.common.vaultls_url"
+                type="text"
+                class="form-control"
+            />
+          </div>
         </div>
       </div>
 

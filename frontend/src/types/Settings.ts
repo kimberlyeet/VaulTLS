@@ -6,6 +6,7 @@ export enum Encryption {
 export interface Settings {
     common: {
         password_enabled: boolean;
+        vaultls_url: string;
     },
     mail: {
         smtp_host: string,

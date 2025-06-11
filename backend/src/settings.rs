@@ -1,4 +1,4 @@
-use std::{env, fs, fs::OpenOptions, io::BufWriter};
+use std::{env, fs};
 use std::env::VarError;
 use argon2::password_hash::rand_core::{OsRng, RngCore};
 use openssl::base64;
@@ -9,9 +9,11 @@ use rocket::serde::ser::SerializeStruct;
 use crate::ApiError;
 use crate::data::enums::MailEncryption;
 use crate::constants::SETTINGS_FILE_PATH;
+use tokio::fs::OpenOptions;
+use tokio::io::AsyncWriteExt;
 
 /// Settings for the backend.
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default, Debug)]
 pub(crate) struct Settings {
     #[serde(default)]
     mail: Mail,
@@ -41,13 +43,26 @@ impl Serialize for FrontendSettings {
 }
 
 /// Common settings for the backend.
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default, Debug)]
 pub(crate) struct Common {
-    password_enabled: bool
+    password_enabled: bool,
+    vaultls_url: String
+}
+
+impl Common {
+    /// Replace common settings with environment variables.
+    fn load_from_env(&mut self) {
+        if let Ok(password_enabled) = env::var("VAULTLS_PASSWORD_ENABLED") {
+            self.password_enabled = password_enabled == "true";
+        }
+        if let Ok(vaultls_url) = env::var("VAULTLS_URL") {
+            self.vaultls_url = vaultls_url;
+        }
+    }
 }
 
 /// Mail settings for the backend.
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default, Debug)]
 pub(crate) struct Mail {
     pub(crate) smtp_host: String,
     pub(crate) smtp_port: u16,
@@ -65,13 +80,19 @@ impl Mail {
 }
 
 /// Authentication settings for the backend.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub(crate) struct Auth {
     jwt_key: String,
 }
 
+impl Default for Auth {
+    fn default() -> Self {
+        Self{ jwt_key: generate_jwt_key(), }
+    }
+}
+
 /// OpenID Connect settings for the backend.
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Serialize, Deserialize, Clone, Default, Debug)]
 pub(crate) struct OIDC {
     pub(crate) id: String,
     pub(crate) secret: String,
@@ -79,9 +100,20 @@ pub(crate) struct OIDC {
     pub(crate) callback_url: String
 }
 
-impl Default for Auth {
-    fn default() -> Self {
-        Self{ jwt_key: generate_jwt_key(), }
+impl OIDC {
+    /// Replace OIDC settings with environment variables.
+    fn load_from_env(&mut self) {
+        let get_env = || -> Result<OIDC, VarError> {
+            let id = env::var("VAULTLS_OIDC_ID")?;
+            let secret = env::var("VAULTLS_OIDC_SECRET")?;
+            let auth_url = env::var("VAULTLS_OIDC_AUTH_URL")?;
+            let callback_url = env::var("VAULTLS_OIDC_CALLBACK_URL")?;
+            Ok(OIDC{ id, secret, auth_url, callback_url })
+        };
+
+        if let Ok(oidc_env) = get_env() {
+            *self = oidc_env;
+        }
     }
 }
 
@@ -92,49 +124,51 @@ fn generate_jwt_key() -> String {
     base64::encode_block(&secret)
 }
 
-/// Fills the OIDC config with the environment variables.
-fn fill_oidc_config() -> OIDC {
-    let get_env = || -> Result<OIDC, VarError> {
-        let id = env::var("OIDC_ID")?;
-        let secret = env::var("OIDC_SECRET")?;
-        let auth_url = env::var("OIDC_AUTH_URL")?;
-        let callback_url = env::var("OIDC_CALLBACK_URL")?;
-        Ok(OIDC{ id, secret, auth_url, callback_url })
-    };
-
-    get_env().unwrap_or_else(|_| OIDC::default())
-}
-
 impl Settings {
     /// Load saved settings from a file
-    pub(crate) fn load_from_file(file_path: Option<&str>) -> Result<Self, ApiError> {
+    pub(crate) async fn load_from_file(file_path: Option<&str>) -> Result<Self, ApiError> {
         let settings_string = fs::read_to_string(file_path.unwrap_or(SETTINGS_FILE_PATH))
             .unwrap_or("{}".to_string());
         let mut settings: Self = serde_json::from_str(&settings_string).unwrap_or(Default::default());
-        settings.oidc = fill_oidc_config();
-        settings.save_to_file(None)?;
+        settings.common.load_from_env();
+        settings.oidc.load_from_env();
+        settings.save_to_file(None).await?;
         Ok(settings)
     }
 
-    /// Save current settings to a file
-    pub(crate) fn save_to_file(&self, file_path: Option<&str>) -> Result<(), ApiError> {
-        let f = OpenOptions::new()
-            .read(true)
+    /// Save current settings to a file, can specify a file path otherwise SETTINGS_FILE_PATH is used.
+    pub(crate) async fn save_to_file(&self, file_path: Option<&str>) -> Result<(), ApiError> {
+        let path = file_path.unwrap_or(SETTINGS_FILE_PATH);
+        
+        let mut file = OpenOptions::new()
             .write(true)
             .create(true)
-            .open(file_path.unwrap_or(SETTINGS_FILE_PATH))
-            .map_err(|_| ApiError::Other("Failed to save settings".to_string()))?;
-        let writer = BufWriter::new(f);
-        serde_json::to_writer_pretty(writer, self).map_err(|_| ApiError::Other("Failed to save settings".to_string()))
+            .truncate(true)
+            .open(path)
+            .await
+            .map_err(|e| ApiError::Other(format!("Failed to open settings file: {}", e)))?;
+
+        let contents = serde_json::to_string_pretty(self)
+            .map_err(|e| ApiError::Other(format!("Failed to serialize settings: {}", e)))?;
+        
+        file.write_all(contents.as_bytes())
+            .await
+            .map_err(|e| ApiError::Other(format!("Failed to write settings: {}", e)))?;
+        
+        file.sync_all()
+            .await
+            .map_err(|e| ApiError::Other(format!("Failed to flush settings to disk: {}", e)))?;
+
+        Ok(())
     }
     
     /// Set the settings and save them to the file.
-    pub(crate) fn set_settings(&mut self, settings: &Settings) -> Result<(), ApiError> {
+    pub(crate) async fn set_settings(&mut self, settings: &Settings) -> Result<(), ApiError> {
         self.common = settings.common.clone();
         self.mail = settings.mail.clone();
         self.oidc = settings.oidc.clone();
 
-        self.save_to_file(None)
+        self.save_to_file(None).await
     }
     
     /// Get the JWT key from the settings.
@@ -145,6 +179,7 @@ impl Settings {
     
     pub(crate) fn get_mail(&self) -> &Mail { &self.mail }
     pub(crate) fn get_oidc(&self) -> &OIDC { &self.oidc }
+    pub(crate) fn get_vaultls_url(&self) -> &str { &self.common.vaultls_url }
     
     /// Check if the password is enabled.
     pub(crate) fn password_enabled(&self) -> bool {
