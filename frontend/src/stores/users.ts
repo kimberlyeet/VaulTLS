@@ -41,16 +41,18 @@ export const useUserStore = defineStore('user', {
             }
         },
 
-        async updateUser(user: User): Promise<void> {
+        // Update user details
+        async updateUser(user: User): Promise<boolean> {
             this.loading = true;
             this.error = null;
             try {
                 await updateUser(user);
-            } catch (err) {
-                this.error = 'Failed to create user.';
-                console.error(err);
-            } finally {
                 this.loading = false;
+                return true;
+            } catch (err) {
+                this.loading = false;
+                this.error = 'Failed to create user.';
+                return false;
             }
         },
 
@@ -69,6 +71,7 @@ export const useUserStore = defineStore('user', {
             }
         },
 
+        // Convert a user ID to a user name
         idToName(id: number): string {
             for (const user of this.users) {
                 if (user.id == id) {

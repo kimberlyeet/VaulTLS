@@ -6,13 +6,13 @@ import {
     createCertificate,
     deleteCertificate,
 } from '../api/certificates';
-import type {CertificateRequirements} from "@/types/CertificateRequirements.ts"; // Adjust the path to match your project structure
+import type {CertificateRequirements} from "@/types/CertificateRequirements.ts";
 
 export const useCertificateStore = defineStore('certificate', {
     state: () => ({
-        certificates: [] as Certificate[], // Stores the list of certificates
-        loading: false, // Indicates if an API call is in progress
-        error: null as string | null, // Stores error messages
+        certificates: [] as Certificate[],
+        loading: false,
+        error: null as string | null,
     }),
 
     actions: {
@@ -34,15 +34,15 @@ export const useCertificateStore = defineStore('certificate', {
         async downloadCertificate(id: number): Promise<void> {
             try {
                 this.error = null;
-                const data = await downloadCertificate(id);
-                const url = window.URL.createObjectURL(new Blob([data]));
+                const { filename, blob } = await downloadCertificate(id);
+                const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.setAttribute('download', `certificate-${id}.crt`);
+                link.download = filename;
                 document.body.appendChild(link);
                 link.click();
                 link.remove();
-                window.URL.revokeObjectURL(url);
+                URL.revokeObjectURL(url);
             } catch (err) {
                 this.error = 'Failed to download the certificate.';
                 console.error(err);
@@ -54,8 +54,8 @@ export const useCertificateStore = defineStore('certificate', {
             this.loading = true;
             this.error = null;
             try {
-                await createCertificate(certReq); // This will handle download and fetch internally
-                this.certificates = await fetchCertificates(); // Refresh the local state
+                await createCertificate(certReq);
+                this.certificates = await fetchCertificates();
             } catch (err) {
                 this.error = 'Failed to create the certificate.';
                 console.error(err);
@@ -69,8 +69,8 @@ export const useCertificateStore = defineStore('certificate', {
             this.loading = true;
             this.error = null;
             try {
-                await deleteCertificate(id); // This handles API deletion and fetch internally
-                this.certificates = await fetchCertificates(); // Refresh the local state
+                await deleteCertificate(id);
+                this.certificates = await fetchCertificates();
             } catch (err) {
                 this.error = 'Failed to delete the certificate.';
                 console.error(err);

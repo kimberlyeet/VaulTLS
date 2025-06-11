@@ -240,13 +240,8 @@ export default defineComponent({
 
     const deleteCertificate = async () => {
       if (certToDelete.value) {
-        try {
-          await certificateStore.deleteCertificate(certToDelete.value.id);
-        } catch (error) {
-          console.error(error);
-        } finally {
-          closeDeleteModal();
-        }
+        await certificateStore.deleteCertificate(certToDelete.value.id);
+        closeDeleteModal();
       }
     };
 

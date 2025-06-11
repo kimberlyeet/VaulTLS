@@ -14,20 +14,18 @@ export const useAuthStore = defineStore('auth', {
         error: null as string | null,
     }),
     actions: {
+        // Initializes auth store and fetches current user if authenticated
         async init() {
-            try {
-                this.error = null;
-                await this.is_setup();
-                this.isAuthenticated = localStorage.getItem("isAuthenticated") === String("true");
-                if (this.isAuthenticated) {
-                    await this.fetchCurrentUser();
-                }
-            } catch (err) {
-                this.logout();
-            } finally {
-                this.isInitialized = true;
+            this.error = null;
+            await this.is_setup();
+            this.isAuthenticated = localStorage.getItem('is_authenticated') === 'true';
+            if (this.isAuthenticated) {
+                await this.fetchCurrentUser();
             }
+            this.isInitialized = true;
         },
+
+        // Trigger the login of a user by email and password
         async login(email: string | undefined, password: string | undefined) {
             try {
                 this.error = null;
@@ -42,6 +40,8 @@ export const useAuthStore = defineStore('auth', {
                 return false;
             }
         },
+
+        // Check if the app is set up and if a password is enabled
         async is_setup() {
             try {
                 this.error = null;
@@ -56,6 +56,8 @@ export const useAuthStore = defineStore('auth', {
                 return false;
             }
         },
+
+        // Change the password of the current user
         async change_password(changePasswordReq: ChangePasswordReq) {
             try {
                 this.error = null;
@@ -68,6 +70,8 @@ export const useAuthStore = defineStore('auth', {
                 return false;
             }
         },
+
+        // Fetch current user and update the state
         async fetchCurrentUser() {
             try {
                 this.error = null;
@@ -76,18 +80,18 @@ export const useAuthStore = defineStore('auth', {
             } catch (err) {
                 this.error = 'Failed to fetch current user.';
                 console.error(err);
+                this.logout();
             }
         },
+
+        // Trigger the login of a user by OIDC
         async finishOIDC() {
-            try {
-                this.error = null;
-                await this.fetchCurrentUser()
-                this.setAuthentication(true);
-            } catch (err) {
-                this.error = 'Failed to finish OIDC callback.';
-                console.error(err);
-            }
+            this.error = null;
+            await this.fetchCurrentUser()
+            this.setAuthentication(true);
         },
+
+        // Set the authentication state and store it in local storage
         setAuthentication(isAuthenticated: boolean) {
             if (isAuthenticated) {
                 this.isAuthenticated = true;
@@ -97,6 +101,8 @@ export const useAuthStore = defineStore('auth', {
                 localStorage.removeItem('is_authenticated');
             }
         },
+
+        // Logout the user and clear the authentication state
         logout() {
             this.error = null;
             this.setAuthentication(false);

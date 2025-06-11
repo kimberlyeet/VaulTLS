@@ -30,7 +30,7 @@
             <td>
               <button 
                 class="btn btn-danger btn-sm"
-                @click="handleDeleteUser(user.id)"
+                @click="confirmDeleteUser(user)"
               >
                 Delete
               </button>
@@ -43,7 +43,7 @@
     <!-- Create User Button -->
     <button 
       class="btn btn-primary mb-3"
-      @click="showCreateModal = true"
+      @click="isCreateModalVisible = true"
     >
       Create New User
     </button>
@@ -51,9 +51,9 @@
     <!-- Create User Modal -->
     <div 
       class="modal fade" 
-      :class="{ 'show d-block': showCreateModal }"
+      :class="{ 'show d-block': isCreateModalVisible }"
       tabindex="-1"
-      v-if="showCreateModal"
+      v-if="isCreateModalVisible"
     >
       <div class="modal-dialog">
         <div class="modal-content">
@@ -62,7 +62,7 @@
             <button 
               type="button" 
               class="btn-close" 
-              @click="showCreateModal = false"
+              @click="isCreateModalVisible = false"
             ></button>
           </div>
           <div class="modal-body">
@@ -113,7 +113,7 @@
                 <button 
                   type="button" 
                   class="btn btn-secondary" 
-                  @click="showCreateModal = false"
+                  @click="isCreateModalVisible = false"
                 >
                   Cancel
                 </button>
@@ -129,14 +129,50 @@
     <!-- Modal Backdrop -->
     <div 
       class="modal-backdrop fade show" 
-      v-if="showCreateModal"
+      v-if="isCreateModalVisible"
     ></div>
+
+    <!-- Delete Confirmation Modal -->
+    <div
+        v-if="isDeleteModalVisible"
+        class="modal show d-block"
+        tabindex="-1"
+        style="background: rgba(0, 0, 0, 0.5)"
+    >
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Delete User</h5>
+            <button type="button" class="btn-close" @click="closeDeleteModal"></button>
+          </div>
+          <div class="modal-body">
+            <p>
+              Are you sure you want to delete the user
+              <strong>{{ userToDelete?.name }}</strong>?
+            </p>
+            <p class="text-warning">
+              <small>
+                Disclaimer: Deleting the user will also delete their certificates. The certificates are still valid until expiry.
+              </small>
+            </p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="closeDeleteModal">
+              Cancel
+            </button>
+            <button type="button" class="btn btn-danger" @click="deleteUser">
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script lang="ts">
 import {defineComponent, onMounted, ref} from 'vue'
-import {type CreateUserRequest, UserRole} from '@/types/User'
+import {type CreateUserRequest, UserRole, type User} from '@/types/User'
 import {useUserStore} from "@/stores/users.ts";
 import {useCertificateStore} from "@/stores/certificates.ts";
 
@@ -148,46 +184,63 @@ export default defineComponent({
     }
   },
   setup() {
-    const userStore = useUserStore()
-    const showCreateModal = ref(false)
+    const userStore = useUserStore();
+    const isCreateModalVisible = ref(false);
+    const isDeleteModalVisible = ref(false);
+    const userToDelete = ref<User | null>(null);
     const newUser = ref<CreateUserRequest>({
       user_name: '',
       user_email: '',
       password: '',
       role: UserRole.User
-    })
+    });
 
     onMounted(async () => {
       await userStore.fetchUsers()
-    })
+    });
 
     const handleCreateUser = async () => {
       await userStore.createUser(newUser.value)
-      showCreateModal.value = false
+      isCreateModalVisible.value = false;
       // Reset form
       newUser.value = {
         user_name: '',
         user_email: '',
         password: '',
         role: UserRole.User
-      }
+      };
     }
 
-    const handleDeleteUser = async (id: number) => {
-      if (confirm('Are you sure you want to delete this user?')) {
-        await userStore.deleteUser(id)
+    const confirmDeleteUser = async (user: User) => {
+      userToDelete.value = user;
+      isDeleteModalVisible.value = true;
+    };
+
+    const closeDeleteModal = () => {
+      userToDelete.value = null;
+      isDeleteModalVisible.value = false;
+    };
+
+    const deleteUser = async () => {
+      if (userToDelete.value) {
+        await userStore.deleteUser(userToDelete.value.id);
         const certStore = useCertificateStore();
         await certStore.fetchCertificates();
+        closeDeleteModal();
       }
-    }
+    };
 
     return {
       userStore,
-      showCreateModal,
+      isCreateModalVisible,
+      isDeleteModalVisible,
+      closeDeleteModal,
+      deleteUser,
       newUser,
       handleCreateUser,
-      handleDeleteUser
-    }
+      userToDelete,
+      confirmDeleteUser
+    };
   }
 })
 </script>

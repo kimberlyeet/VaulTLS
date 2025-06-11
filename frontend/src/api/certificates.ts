@@ -6,8 +6,8 @@ export const fetchCertificates = async (): Promise<Certificate[]> => {
     return await ApiClient.get<Certificate[]>('/certificates');
 };
 
-export const downloadCertificate = async (id: number): Promise<Blob> => {
-    return await ApiClient.get<Blob>(`/certificates/${id}/download`, { responseType: 'blob' });
+export const downloadCertificate = async (id: number): Promise<{ filename: string; blob: Blob }> => {
+    return await ApiClient.get_download(`/certificates/${id}/download`);
 };
 
 export const createCertificate = async (certReq: CertificateRequirements): Promise<number> => {

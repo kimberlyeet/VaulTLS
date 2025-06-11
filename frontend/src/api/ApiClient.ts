@@ -39,6 +39,31 @@ class ApiClient {
         }
     }
 
+    async get_download(url: string, params: Record<string, any> = {}): Promise<{ filename: string, blob: Blob }> {
+        try {
+            const response = await this.client.get(url, {
+                params,
+                responseType: 'blob',
+            });
+
+            const disposition = response.headers['content-disposition'];
+            let filename = 'certificate.crt';
+            if (disposition && disposition.includes('filename=')) {
+                filename = disposition
+                    .split('filename=')[1]
+                    .replace(/['"]/g, '')
+                    .trim();
+            }
+
+            const blob = new Blob([response.data]);
+            return { filename, blob };
+        } catch (error) {
+            console.error(`GET ${url} download failed:`, error);
+            throw error;
+        }
+    }
+
+
     async post<T>(url: string, data: Record<string, any> = {}): Promise<T> {
         try {
             const response: AxiosResponse<T> = await this.client.post(url, data);

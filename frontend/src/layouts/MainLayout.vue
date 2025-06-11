@@ -1,4 +1,3 @@
-<!-- src/layouts/MainLayout.vue -->
 <template>
   <div class="d-flex">
     <!-- Sidebar -->

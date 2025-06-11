@@ -208,6 +208,9 @@
     <div v-if="user_error" class="alert alert-danger mt-3">
       {{ user_error }}
     </div>
+    <div v-if="saved_successfully" class="alert alert-success mt-3">
+      Settings saved successfully
+    </div>
 
     <!-- Save Button -->
     <button class="btn btn-primary mt-3" @click="saveSettings">Save</button>
@@ -216,7 +219,7 @@
 
 <script lang="ts">
 import {computed, defineComponent, ref, onMounted} from 'vue';
-import { useSettingseStore } from '@/stores/settings';
+import { useSettingsStore } from '@/stores/settings';
 import { useAuthStore } from '@/stores/auth';
 import {type User, UserRole} from "@/types/User.ts";
 import {useUserStore} from "@/stores/users.ts";
@@ -230,7 +233,7 @@ export default defineComponent({
     }
   },
   setup() {
-    const settingsStore = useSettingseStore();
+    const settingsStore = useSettingsStore();
     const authStore = useAuthStore();
     const userStore = useUserStore();
 
@@ -243,6 +246,7 @@ export default defineComponent({
     const settings_error = computed(() => settingsStore.error);
     const user_error = computed(() => userStore.error);
     const password_error = computed(() => authStore.error);
+    const saved_successfully = ref(false);
 
     const canChangePassword = computed(() =>
         changePasswordReq.value.newPassword === confirmPassword.value &&
@@ -263,14 +267,17 @@ export default defineComponent({
     };
 
     const saveSettings = async () => {
+      saved_successfully.value = false;
+      let success = true;
       if (current_user.value?.role == UserRole.Admin) {
-        await settingsStore.saveSettings();
+        success &&= await settingsStore.saveSettings();
       }
 
       if (editableUser.value) {
-        await userStore.updateUser(editableUser.value);
+        success &&= await userStore.updateUser(editableUser.value);
         await authStore.fetchCurrentUser();
       }
+      saved_successfully.value = success;
     }
 
     onMounted(async () => {
@@ -295,7 +302,8 @@ export default defineComponent({
       isAdmin,
       settings_error,
       user_error,
-      password_error
+      password_error,
+      saved_successfully
     };
   },
 });

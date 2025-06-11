@@ -60,7 +60,6 @@ export default defineComponent({
     const activeRouteName = computed(() => route.name);
     const isAdmin = computed(() => authStore.current_user?.role == UserRole.Admin);
 
-    // A helper method to navigate to a given route name
     const goToRoute = (name: string) => {
       router.push({ name });
     };

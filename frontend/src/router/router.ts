@@ -53,6 +53,7 @@ const router = createRouter({
 
                 try {
                     if (!authStore.isInitialized) {
+                        console.log('Initializing');
                         await authStore.init();
                     }
                     if (!authStore.isSetup) {
@@ -64,6 +65,7 @@ const router = createRouter({
                     }
 
                     if (!authStore.isAuthenticated) {
+                        console.log('Not authenticated');
                         return next({ name: 'Login' });
                     }
 

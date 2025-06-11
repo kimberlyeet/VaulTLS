@@ -3,7 +3,7 @@
     <div class="card p-4 shadow" style="max-width: 400px; width: 100%;">
       <h1 class="text-center mb-4">Hello</h1>
 
-      <!-- 🔹 Show notice if OIDC is enabled -->
+      <!-- Show notice if OIDC is enabled -->
       <div v-if="authStore.oidc_url" class="alert alert-info text-center">
         OAuth (OIDC) is configured. You can still set a password for local login if desired.
       </div>
@@ -53,7 +53,7 @@
           />
         </div>
 
-        <!-- 🔹 Password field is always available, but not required if OIDC is enabled -->
+        <!-- Password field is always available, but not required if OIDC is enabled -->
         <div class="mb-3">
           <label for="password" class="form-label">Password (Optional)</label>
           <input

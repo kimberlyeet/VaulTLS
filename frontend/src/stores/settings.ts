@@ -3,7 +3,7 @@ import {Encryption, type Settings} from '@/types/Settings';
 import {
     fetchSettings,
     putSettings
-} from '@/api/settings'; // Adjust the path to match your project structure
+} from '@/api/settings';
 
 const defaultSettings: Settings = {
     common: {
@@ -25,7 +25,7 @@ const defaultSettings: Settings = {
     }
 };
 
-export const useSettingseStore = defineStore('settings', {
+export const useSettingsStore = defineStore('settings', {
     state: () => ({
         settings: defaultSettings,
         error: null as string | null,
@@ -44,13 +44,15 @@ export const useSettingseStore = defineStore('settings', {
         },
 
         // Trigger the download of a certificate by ID
-        async saveSettings(): Promise<void> {
+        async saveSettings(): Promise<boolean> {
             try {
                 this.error = null;
                 await putSettings(this.settings);
+                return true;
             } catch (err) {
                 this.error = 'Failed to download the certificate.';
                 console.error(err);
+                return false;
             }
         },
     },
