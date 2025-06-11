@@ -181,6 +181,10 @@ impl Settings {
     pub(crate) fn get_oidc(&self) -> &OIDC { &self.oidc }
     pub(crate) fn get_vaultls_url(&self) -> &str { &self.common.vaultls_url }
     
+    pub(crate) fn set_password_enabled(&mut self, password_enabled: bool) {
+        self.common.password_enabled = password_enabled;
+    }
+    
     /// Check if the password is enabled.
     pub(crate) fn password_enabled(&self) -> bool {
         self.common.password_enabled

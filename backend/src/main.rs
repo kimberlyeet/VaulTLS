@@ -203,15 +203,19 @@ async fn setup(
     state: &State<AppState>,
     setup_req: Json<SetupRequest>
 ) -> Result<(), ApiError> {
-    let settings = state.settings.lock().await;
+    let mut settings = state.settings.lock().await;
     let db = state.db.lock().await;
 
     if db.is_setup() {
         return Err(ApiError::Unauthorized(None))
     }
 
-    if setup_req.password.is_some() && settings.get_oidc().auth_url.is_empty() {
+    if setup_req.password.is_none() && settings.get_oidc().auth_url.is_empty() {
         return Err(ApiError::Other("Password is required".to_string()))
+    }
+
+    if setup_req.password.is_some() {
+        settings.set_password_enabled(true);
     }
 
     let mut user = User{
