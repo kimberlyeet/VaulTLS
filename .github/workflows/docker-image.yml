@@ -40,5 +40,5 @@ jobs:
         file: ./Containerfile
         push: true
         tags: |
-          ghcr.io/${{ github.repository }}:${{ env.RELEASE_TAG }}
-          ghcr.io/${{ github.repository }}:latest
+          ghcr.io/${{ env.REPO_LOWER }}:${{ env.RELEASE_TAG }}
+          ghcr.io/${{ env.REPO_LOWER }}:latest
