@@ -60,6 +60,17 @@ For VaulTLS the required variables can be configured via environmental variables
 | `VAULTLS_OIDC_ID`           | `[client_id]`                                        |
 | `VAULTLS_OIDC_SECRET`       | `[client_secret]`                                    |
 
+## Usage
+During the first setup a Certificate Authority is automatically created. If OIDC is configured no password needs to be set.
+Users can either log in via password or OIDC. If a user first logs in via OIDC their e-mail is matched with all VaulTLS users and linked.
+If no user is found a new one is created.
+
+Users can only see certificates created for them. Only admins can create new certificates.
+User certificates can be downloaded through the web interface.
+
+The CA certificate to be integrated with your reverse proxy is available as a file at /app/data/ca.cert 
+and as download via the API endpoint /api/certificates/ca/download.
+
 ## Roadmap
 - Add database encryption
 - Hash passwords in Frontend
