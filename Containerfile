@@ -1,6 +1,8 @@
 # Stage 1: Build the Vue.js frontend
 FROM node:23 AS frontend-builder
 
+COPY assets/logo.png /app/assets/
+
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN --mount=type=cache,target=/root/.npm npm install
