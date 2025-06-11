@@ -85,7 +85,7 @@ impl Mailer {
 /// Generates the HTML content of the email
 fn generate_certificate_email(message: &MailMessage, instance_url: &str) -> Markup {
     let datetime_created_on = DateTime::from_timestamp(message.certificate.created_on / 1000, 0).unwrap();
-    let datetime_valid_until = DateTime::from_timestamp(message.certificate.created_on / 1000, 0).unwrap();
+    let datetime_valid_until = DateTime::from_timestamp(message.certificate.valid_until / 1000, 0).unwrap();
     let created_on = datetime_created_on.format("%Y-%m-%d %H:%M:%S").to_string();
     let valid_until = datetime_valid_until.format("%Y-%m-%d %H:%M:%S").to_string();
 
