@@ -113,6 +113,7 @@ export default defineComponent({
           ca_validity_in_years: ca_validity_in_years.value,
           password: password.value || null
         });
+        await authStore.init();
         await router.replace({ name: 'Login' });
       } catch (err) {
         errorMessage.value = 'Failed to set up.';
