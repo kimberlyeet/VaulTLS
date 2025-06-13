@@ -23,7 +23,7 @@ pub(crate) struct MailMessage {
 }
 
 impl Mailer {
-    pub fn new(server: &Mail, vaultls_url: &str) -> Result<Self, anyhow::Error> {
+    pub async fn new(server: &Mail, vaultls_url: &str) -> Result<Self, anyhow::Error> {
         let mut mail_builder = match server.encryption {
             MailEncryption::None => AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(server.smtp_host.clone()).port(server.smtp_port),
             MailEncryption::TLS => {
@@ -42,7 +42,9 @@ impl Mailer {
         }
 
         let mailer = mail_builder.build();
-
+        
+        mailer.test_connection().await?;
+        
         Ok(Self {
             mailer,
             from: server.from.parse()?,

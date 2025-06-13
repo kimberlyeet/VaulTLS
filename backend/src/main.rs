@@ -174,7 +174,7 @@ async fn update_settings(
     let mut mailer = state.mailer.lock().await;
     let mail_settings = settings.get_mail();
     if mail_settings.is_valid() {
-        *mailer = Mailer::new(mail_settings, settings.get_vaultls_url()).ok()
+        *mailer = Mailer::new(mail_settings, settings.get_vaultls_url()).await.ok()
     } else {
         *mailer = None;
     }
@@ -418,7 +418,7 @@ async fn rocket() -> _ {
 
     let mail_settings = settings.get_mail();
     let mailer = match mail_settings.is_valid() {
-        true => Mailer::new(mail_settings, settings.get_vaultls_url()).ok(),
+        true => Mailer::new(mail_settings, settings.get_vaultls_url()).await.ok(),
         false => None
     };
     let rocket_secret = env::var("VAULTLS_API_SECRET").expect("VAULTS_API_SECRET is not set");
