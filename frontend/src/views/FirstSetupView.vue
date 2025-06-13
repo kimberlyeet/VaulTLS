@@ -46,7 +46,7 @@
           <label for="ca_validity_in_years" class="form-label">Validity of CA in years</label>
           <input
               id="ca_validity_in_years"
-              type="text"
+              type="number"
               v-model="ca_validity_in_years"
               class="form-control"
               required
