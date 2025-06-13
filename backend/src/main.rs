@@ -8,6 +8,7 @@ use rocket::serde::json::Json;
 use rocket::State;
 use std::sync::Arc;
 use argon2::password_hash::PasswordHashString;
+use rocket::config::LogLevel;
 use rocket::response::Redirect;
 use rocket::tokio::sync::Mutex;
 use rocket_cors::{AllowedOrigins, CorsOptions};
@@ -24,7 +25,7 @@ use crate::notification::{MailMessage, Mailer};
 use auth::oidc_auth::OidcAuth;
 use crate::auth::password_auth::verify_password;
 use crate::auth::session_auth::{generate_token, Authenticated};
-use crate::constants::{API_PORT, DB_FILE_PATH};
+use crate::constants::{API_PORT, DB_FILE_PATH, VAULTLS_VERSION};
 use crate::settings::FrontendSettings;
 
 mod db;
@@ -401,24 +402,36 @@ async fn delete_user(
 
 #[launch]
 async fn rocket() -> _ {
+    println!("Starting mTLS Certificates API");
+    println!("Version {}", VAULTLS_VERSION);
+
+    println!("Trying to use database at {}", DB_FILE_PATH);
     let db_path = std::path::Path::new(DB_FILE_PATH);
     let db_initialized = db_path.exists();
     let db = VaulTLSDB::new(db_path).expect("Failed opening SQLite database.");
     if !db_initialized {
+        println!("No database found. Initializing.");
         db.initialize_db().expect("Failed initializing database");
     }
 
+    println!("Loading settings from file");
     let settings = Settings::load_from_file(None).await.expect("Failed loading settings");
 
     let oidc_settings = settings.get_oidc();
     let oidc = match oidc_settings.auth_url.is_empty() {
         true => None,
-        false => OidcAuth::new(&settings.get_oidc()).await.ok()
+        false => {
+            println!("OIDC enabled. Trying to connect to {}.", oidc_settings.auth_url);
+            OidcAuth::new(&settings.get_oidc()).await.ok()
+        }
     };
 
     let mail_settings = settings.get_mail();
     let mailer = match mail_settings.is_valid() {
-        true => Mailer::new(mail_settings, settings.get_vaultls_url()).await.ok(),
+        true => {
+            println!("Mail enabled. Trying to connect to {}.", mail_settings.smtp_host);
+            Mailer::new(mail_settings, settings.get_vaultls_url()).await.ok()
+        },
         false => None
     };
     let rocket_secret = env::var("VAULTLS_API_SECRET").expect("VAULTS_API_SECRET is not set");
@@ -441,6 +454,8 @@ async fn rocket() -> _ {
                 .collect(),
         )
         .allow_credentials(true);
+
+    println!("Initialization complete.");
 
     rocket::build()
         .configure(rocket::Config::figment().merge(("port", API_PORT)))
