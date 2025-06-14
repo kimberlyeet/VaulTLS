@@ -207,6 +207,7 @@ export default defineComponent({
     // Fetch certificates when the component is mounted
     onMounted(() => {
       certificateStore.fetchCertificates();
+      settingStore.fetchSettings();
       if (isAdmin.value) {
         userStore.fetchUsers();
       }
