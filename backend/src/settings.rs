@@ -46,6 +46,7 @@ impl Serialize for FrontendSettings {
 #[derive(Serialize, Deserialize, Clone, Default, Debug)]
 pub(crate) struct Common {
     password_enabled: bool,
+    secure_cookies: bool, 
     vaultls_url: String
 }
 
@@ -54,6 +55,9 @@ impl Common {
     fn load_from_env(&mut self) {
         if let Ok(password_enabled) = env::var("VAULTLS_PASSWORD_ENABLED") {
             self.password_enabled = password_enabled == "true";
+        }
+        if let Ok(secure_cookies) = env::var("VAULTLS_SECURE_COOKIES") {
+            self.secure_cookies = secure_cookies == "true";
         }
         if let Ok(vaultls_url) = env::var("VAULTLS_URL") {
             self.vaultls_url = vaultls_url;
@@ -188,5 +192,14 @@ impl Settings {
     /// Check if the password is enabled.
     pub(crate) fn password_enabled(&self) -> bool {
         self.common.password_enabled
+    }
+
+    pub(crate) fn set_secure_cookies(&mut self, secure_cookies: bool) {
+        self.common.secure_cookies = secure_cookies;
+    }
+    
+    /// Check if the secure cookies is enabled.
+    pub(crate) fn secure_cookies(&self) -> bool {
+        self.common.secure_cookies
     }
 }

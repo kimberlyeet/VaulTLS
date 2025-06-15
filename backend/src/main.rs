@@ -265,10 +265,11 @@ async fn login(
     if let Some(password_hash) = user.password_hash {
         verify_password(&password_hash, &*login_req_opt.password)?;
         let jwt_key = settings.get_jwt_key()?;
+        let secure_cookies = settings.secure_cookies();
         let token = generate_token(&jwt_key, user.id, user.role)?;
 
         let cookie = Cookie::build(("auth_token", token.clone()))
-            .secure(true)
+            .secure(secure_cookies)
             .http_only(true)
             .same_site(SameSite::Lax);
         jar.add_private(cookie);
