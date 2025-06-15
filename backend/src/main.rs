@@ -268,7 +268,7 @@ async fn login(
         let token = generate_token(&jwt_key, user.id, user.role)?;
 
         let cookie = Cookie::build(("auth_token", token.clone()))
-            .secure(false)
+            .secure(true)
             .http_only(true)
             .same_site(SameSite::Lax);
         jar.add_private(cookie);
