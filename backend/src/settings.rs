@@ -181,8 +181,9 @@ impl Settings {
     pub(crate) fn get_oidc(&self) -> &OIDC { &self.oidc }
     pub(crate) fn get_vaultls_url(&self) -> &str { &self.common.vaultls_url }
     
-    pub(crate) fn set_password_enabled(&mut self, password_enabled: bool) {
+    pub(crate) async fn set_password_enabled(&mut self, password_enabled: bool) -> Result<(), ApiError>{
         self.common.password_enabled = password_enabled;
+        self.save_to_file(None).await
     }
     
     /// Check if the password is enabled.

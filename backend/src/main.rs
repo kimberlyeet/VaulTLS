@@ -216,7 +216,7 @@ async fn setup(
     }
 
     if setup_req.password.is_some() {
-        settings.set_password_enabled(true);
+        settings.set_password_enabled(true).await?;
     }
 
     let mut user = User{
