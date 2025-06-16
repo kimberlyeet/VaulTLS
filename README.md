@@ -34,6 +34,9 @@ podman run -d \
   ghcr.io/7ritn/vaultls:latest
 ```
 
+### Encrypting the Database
+By specifying the `VAULTLS_DB_SECRET` environmental variable, the database is encrypted. Data is retained. It is not possible to go back.
+
 ### Setting up OIDC
 To set up OIDC you need to create a new client in your authentication provider. For Authelia a configuration could look like this
 ```yaml

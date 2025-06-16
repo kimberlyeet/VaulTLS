@@ -22,7 +22,9 @@ pub(crate) struct Settings {
     #[serde(default)]
     auth: Auth,
     #[serde(default)]
-    oidc: OIDC
+    oidc: OIDC,
+    #[serde(default)]
+    logic: Logic
 }
 
 /// Wrapper for the settings to make them serializable for the frontend.
@@ -46,7 +48,7 @@ impl Serialize for FrontendSettings {
 #[derive(Serialize, Deserialize, Clone, Default, Debug)]
 pub(crate) struct Common {
     password_enabled: bool,
-    vaultls_url: String
+    vaultls_url: String,
 }
 
 impl Common {
@@ -117,6 +119,12 @@ impl OIDC {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, Default, Debug)]
+pub(crate) struct Logic {
+    pub(crate) db_encrypted: bool,
+}
+
+
 /// Generates a new JWT key.
 fn generate_jwt_key() -> String {
     let mut secret = [0u8; 32];
@@ -180,9 +188,15 @@ impl Settings {
     pub(crate) fn get_mail(&self) -> &Mail { &self.mail }
     pub(crate) fn get_oidc(&self) -> &OIDC { &self.oidc }
     pub(crate) fn get_vaultls_url(&self) -> &str { &self.common.vaultls_url }
+    pub(crate) fn get_db_encrypted(&self) -> bool { self.logic.db_encrypted }
     
     pub(crate) async fn set_password_enabled(&mut self, password_enabled: bool) -> Result<(), ApiError>{
         self.common.password_enabled = password_enabled;
+        self.save_to_file(None).await
+    }
+
+    pub(crate) async fn set_db_encrypted(&mut self) -> Result<(), ApiError>{
+        self.logic.db_encrypted = true;
         self.save_to_file(None).await
     }
     

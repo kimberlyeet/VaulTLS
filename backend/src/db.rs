@@ -1,11 +1,11 @@
-use std::fs;
-use std::os::unix::fs::PermissionsExt;
+use std::{env, fs};
 use rusqlite::fallible_iterator::FallibleIterator;
-use std::path::Path;
 use std::str::FromStr;
+use anyhow::anyhow;
 use argon2::password_hash::PasswordHashString;
 use rusqlite::{params, Connection, Result};
 use crate::{ApiError, Certificate, User};
+use crate::constants::{DB_FILE_PATH, TEMP_DB_FILE_PATH};
 use crate::data::enums::UserRole;
 
 pub(crate) struct VaulTLSDB {
@@ -13,15 +13,64 @@ pub(crate) struct VaulTLSDB {
 }
 
 impl VaulTLSDB {
-    pub(crate) fn new(db_path: &Path) -> Result<Self> {
-        let connection = Connection::open(db_path)?;
-        connection.execute("PRAGMA foreign_keys = ON", [])?;
+    pub(crate) fn new(db_encrypted: bool) -> anyhow::Result<Self> {
+        let connection = Connection::open(DB_FILE_PATH)?;
+        let db_secret = env::var("VAULTLS_DB_SECRET");
+        if db_encrypted {
+            if let Ok(ref db_secret) = db_secret {
+                connection.pragma_update(None, "key", db_secret)?;
+            } else {
+                return Err(anyhow!("VAULTLS_DB_SECRET missing".to_string()));
+            }
 
-        let mut perms = fs::metadata(db_path).unwrap().permissions();
-        perms.set_mode(0o600);
-        fs::set_permissions(db_path, perms).unwrap();
+        }
+        connection.pragma_update(None, "foreign_keys", &"ON")?;
 
-        Ok(Self { connection })
+        if !db_encrypted {
+            if let Ok(ref db_secret) = db_secret {
+                println!("Migrating to encrypted database");
+                Self::create_encrypt_db(&connection, db_secret)?;
+                drop(connection);
+                let conn = Self::migrate_to_encrypted_db(&db_secret)?;
+                return Ok(Self { connection: conn});
+            }
+        }
+
+        Ok(Self { connection})
+    }
+
+    /// Create a new encrypted database with cloned data
+    fn create_encrypt_db(conn: &Connection, new_db_secret: &str) -> Result<()> {
+        let encrypted_path = TEMP_DB_FILE_PATH;
+        conn.execute(
+            &format!("ATTACH DATABASE '{}' AS encrypted KEY '{}';", encrypted_path, new_db_secret),
+            [],
+        )?;
+
+        // Migrate data
+        conn.query_row("SELECT sqlcipher_export('encrypted');", [], |_row| Ok(()))?;
+        // Copy user_version for migrations
+        let user_version: Result<i64> = conn
+            .query_row("PRAGMA user_version;", [], |row| row.get(0));
+        if let Ok(user_version) = user_version {
+            conn.execute(
+                &format!("PRAGMA encrypted.user_version = '{}';", user_version),
+                []
+            )?;
+        }
+
+        conn.execute("DETACH DATABASE encrypted;", [])?;
+        Ok(())
+    }
+    
+    /// Migrate the unencrypted database to an encrypted database
+    fn migrate_to_encrypted_db(db_secret: &str) -> anyhow::Result<Connection> {
+        fs::remove_file(DB_FILE_PATH)?;
+        fs::rename(TEMP_DB_FILE_PATH, DB_FILE_PATH)?;
+        let conn = Connection::open(DB_FILE_PATH)?;
+        conn.pragma_update(None, "key", db_secret)?;
+        conn.pragma_update(None, "foreign_keys", &"ON")?;
+        Ok(conn)
     }
 
     /// Initialize the database with the required tables
