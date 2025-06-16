@@ -17,8 +17,8 @@ impl VaulTLSDB {
         let connection = Connection::open(DB_FILE_PATH)?;
         let db_secret = env::var("VAULTLS_DB_SECRET");
         if db_encrypted {
-            if let Ok(db_secret) = db_secret.clone() {
-                connection.pragma_update(None, "key", &db_secret)?;
+            if let Ok(ref db_secret) = db_secret {
+                connection.pragma_update(None, "key", db_secret)?;
             } else {
                 return Err(anyhow!("VAULTLS_DB_SECRET missing".to_string()));
             }
@@ -27,9 +27,9 @@ impl VaulTLSDB {
         connection.pragma_update(None, "foreign_keys", &"ON")?;
 
         if !db_encrypted {
-            if let Ok(db_secret) = db_secret {
+            if let Ok(ref db_secret) = db_secret {
                 println!("Migrating to encrypted database");
-                Self::create_encrypt_db(&connection, &db_secret)?;
+                Self::create_encrypt_db(&connection, db_secret)?;
                 drop(connection);
                 let conn = Self::migrate_to_encrypted_db(&db_secret)?;
                 return Ok(Self { connection: conn});
@@ -39,6 +39,7 @@ impl VaulTLSDB {
         Ok(Self { connection})
     }
 
+    /// Create a new encrypted database with cloned data
     fn create_encrypt_db(conn: &Connection, new_db_secret: &str) -> Result<()> {
         let encrypted_path = TEMP_DB_FILE_PATH;
         conn.execute(
@@ -61,7 +62,8 @@ impl VaulTLSDB {
         conn.execute("DETACH DATABASE encrypted;", [])?;
         Ok(())
     }
-
+    
+    /// Migrate the unencrypted database to an encrypted database
     fn migrate_to_encrypted_db(db_secret: &str) -> anyhow::Result<Connection> {
         fs::remove_file(DB_FILE_PATH)?;
         fs::rename(TEMP_DB_FILE_PATH, DB_FILE_PATH)?;

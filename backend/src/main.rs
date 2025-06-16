@@ -1,7 +1,8 @@
 #[macro_use]
 extern crate rocket;
 
-use std::env;
+use std::{env, fs};
+use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use rocket::fairing::AdHoc;
 use rocket::http::{Cookie, CookieJar, Method, SameSite};
@@ -417,6 +418,10 @@ async fn rocket() -> _ {
     }
     if !db_initialized {
         println!("No database found. Initializing.");
+        // Adjust permissions
+        let mut perms = fs::metadata(db_path).unwrap().permissions();
+        perms.set_mode(0o600);
+        fs::set_permissions(db_path, perms).unwrap();
         db.initialize_db().expect("Failed initializing database");
     }
 
