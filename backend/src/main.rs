@@ -2,13 +2,13 @@
 extern crate rocket;
 
 use std::env;
+use std::path::Path;
 use rocket::fairing::AdHoc;
 use rocket::http::{Cookie, CookieJar, Method, SameSite};
 use rocket::serde::json::Json;
 use rocket::State;
 use std::sync::Arc;
 use argon2::password_hash::PasswordHashString;
-use rocket::config::LogLevel;
 use rocket::response::Redirect;
 use rocket::tokio::sync::Mutex;
 use rocket_cors::{AllowedOrigins, CorsOptions};
@@ -405,17 +405,20 @@ async fn rocket() -> _ {
     println!("Starting mTLS Certificates API");
     println!("Version {}", VAULTLS_VERSION);
 
+    println!("Loading settings from file");
+    let mut settings = Settings::load_from_file(None).await.expect("Failed loading settings");
+
     println!("Trying to use database at {}", DB_FILE_PATH);
-    let db_path = std::path::Path::new(DB_FILE_PATH);
+    let db_path = Path::new(DB_FILE_PATH);
     let db_initialized = db_path.exists();
-    let db = VaulTLSDB::new(db_path).expect("Failed opening SQLite database.");
+    let db = VaulTLSDB::new(settings.get_db_encrypted()).expect("Failed opening SQLite database.");
+    if !settings.get_db_encrypted() && env::var("VAULTLS_DB_SECRET").is_ok() {
+        settings.set_db_encrypted().await.unwrap()
+    }
     if !db_initialized {
         println!("No database found. Initializing.");
         db.initialize_db().expect("Failed initializing database");
     }
-
-    println!("Loading settings from file");
-    let settings = Settings::load_from_file(None).await.expect("Failed loading settings");
 
     let oidc_settings = settings.get_oidc();
     let oidc = match oidc_settings.auth_url.is_empty() {
