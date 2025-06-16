@@ -5,18 +5,18 @@ edition = "2021"
 
 [dependencies]
 rocket = { version = "0.5", features = ["json", "secrets"] }
-rocket_cors = "0.6.0"
+rocket_cors = "0.6"
 serde = "1.0"
 serde_json = "1.0"
 serde_repr = "0.1"
-rusqlite = { version = "0.36.0", features = ["bundled"] }
+rusqlite = { version = "0.36", features = ["bundled-sqlcipher"] }
 openssl = "0.10"
 argon2 = "0.5"
 jsonwebtoken = "9"
 openidconnect = "4.0"
-anyhow = "1.0.95"
+anyhow = "1.0"
 num_enum = "0.7"
 lettre = { version = "0.11", features = ["tokio1", "builder", "smtp-transport", "tokio1-native-tls"] }
-maud = "0.27.0"
-chrono = "0.4.41"
+maud = "0.27"
+chrono = "0.4"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
