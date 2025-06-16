@@ -285,6 +285,14 @@ async fn change_password(
     db.set_user_password(user_id, &password_hash)
 }
 
+#[post("/api/auth/logout")]
+async fn logout(
+    jar: &CookieJar<'_>,
+) -> Result<(), ApiError> {
+    jar.remove_private(Cookie::build(("name", "auth_token")));
+    Ok(())
+}
+
 #[get("/api/auth/oidc/login")]
 async fn oidc_login(
     state: &State<AppState>,
@@ -483,6 +491,7 @@ async fn rocket() -> _ {
                 setup,
                 login,
                 change_password,
+                logout,
                 oidc_login,
                 oidc_callback,
                 get_current_user,

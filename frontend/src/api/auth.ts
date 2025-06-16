@@ -19,6 +19,10 @@ export const change_password = async (changePasswordReq: ChangePasswordReq): Pro
     return await ApiClient.post<void>('/auth/change_password', changePasswordReq);
 };
 
+export const logout = async (): Promise<void> => {
+    return await ApiClient.post<void>('/auth/logout');
+};
+
 export const current_user = async (): Promise<User> => {
     return await ApiClient.get<User>('/auth/me');
 }

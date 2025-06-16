@@ -1,9 +1,9 @@
 <template>
-  <div class="sidebar shadow-lg rounded-end" style="width: 250px;">
+  <div class="sidebar shadow-lg rounded-end d-flex flex-column" style="width: 250px;">
     <ProfileCard />
 
-    <nav class="mt-4">
-      <ul class="nav flex-column">
+    <div class="flex-grow-1 overflow-auto mt-4">
+      <ul class="nav flex-column flex-grow-1">
         <li class="nav-item mb-2">
           <a
               href="#"
@@ -38,7 +38,17 @@
           </a>
         </li>
       </ul>
-    </nav>
+    </div>
+    <div class="p-3">
+      <a
+          href="#"
+          class="nav-link d-flex align-items-center gap-2"
+          @click="handleLogout"
+      >
+        <i class="bi bi-box-arrow-right"></i>
+        Logout
+      </a>
+    </div>
   </div>
 </template>
 
@@ -64,10 +74,17 @@ export default defineComponent({
       router.push({ name });
     };
 
+    const handleLogout = async () => {
+      await authStore.logout();
+      goToRoute('Login');
+    };
+
+
     return {
       activeRouteName,
       isAdmin,
       goToRoute,
+      handleLogout
     };
   },
 });
@@ -95,5 +112,9 @@ export default defineComponent({
   font-weight: bold;
   background-color: var(--color-active);
   border-radius: 4px;
+}
+button.nav-link {
+  background: none;
+  cursor: pointer;
 }
 </style>
