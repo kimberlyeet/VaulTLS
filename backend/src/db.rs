@@ -140,7 +140,7 @@ impl VaulTLSDB {
     }
 
     /// Retrieve the certificate's PKCS12 data with id from the database
-    /// Returns the id of the user the certificate belongs to and the PKCS12 data
+    /// Returns the id of the user the certificate belongs to and the PKCS12 password
     pub(crate) fn get_user_cert_pkcs12_password(&self, id: i64) -> Result<(i64, String), rusqlite::Error> {
         let mut stmt = self.connection.prepare("SELECT user_id, pkcs12_password FROM user_certificates WHERE id = ?1")?;
         

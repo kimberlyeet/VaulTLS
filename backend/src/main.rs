@@ -13,11 +13,12 @@ use rocket::response::Redirect;
 use rocket::tokio::sync::Mutex;
 use rocket_cors::{AllowedOrigins, CorsOptions};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use cert::create_ca;
 use db::VaulTLSDB;
 use settings::Settings;
 use crate::cert::{get_pem, save_ca, Certificate};
-use crate::data::api::{CallbackQuery, CertificatePasswordResponse, ChangePasswordRequest, CreateCertificateRequest, CreateUserRequest, DownloadResponse, IsSetupResponse, LoginRequest, SetupRequest};
+use crate::data::api::{CallbackQuery, ChangePasswordRequest, CreateCertificateRequest, CreateUserRequest, DownloadResponse, IsSetupResponse, LoginRequest, SetupRequest};
 use crate::data::enums::UserRole;
 use crate::data::error::ApiError;
 use crate::helper::{hash_password, hash_password_string};
@@ -138,15 +139,11 @@ async fn fetch_certificate_password(
     state: &State<AppState>,
     id: i64,
     authentication: Authenticated
-) -> Result<Json<CertificatePasswordResponse>, ApiError> {
+) -> Result<Json<serde_json::Value>, ApiError> {
     let db = state.db.lock().await;
     let (user_id, pkcs12_password) = db.get_user_cert_pkcs12_password(id)?;
     if user_id != authentication.claims.id && authentication.claims.role != UserRole::Admin { return Err(ApiError::Forbidden(None)) }
-    Ok(Json(CertificatePasswordResponse {
-        id: id,
-        user_id: user_id,
-        pkcs12_password: pkcs12_password
-    }))
+    Ok(Json(json!({ "pkcs12_password": pkcs12_password })))
 }
 
 #[delete("/api/certificates/<id>")]

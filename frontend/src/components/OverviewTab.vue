@@ -10,7 +10,7 @@
             <th>Name</th>
             <th>Created on</th>
             <th>Valid until</th>
-            <th>Cert Password</th>
+            <th>Password</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -20,15 +20,14 @@
             <td>{{ cert.name }}</td>
             <td>{{ new Date(cert.created_on).toLocaleDateString() }}</td>
             <td>{{ new Date(cert.valid_until).toLocaleDateString() }}</td>
-            <td>
-              <div class="input-container" v-if="cert.password_shown">
-                <input type="text" :value="cert.pkcs12_password" />
-                <img src="/app/assets/eye-hidden.png" alt="Logo" class="input-icon d-block mx-auto mb-4" @click="togglePasswordShown(cert.id)" />
-              </div>
-              <div class="input-container" v-else>
-                <input type="text" value="********************" />
-                <img src="/app/assets/eye-open.png" alt="Logo" class="input-icon d-block mx-auto mb-4" @click="togglePasswordShown(cert.id)" />
-              </div>
+            <td class="password-cell">
+              {{ shownCerts.has(cert.id) ? cert.pkcs12_password : '*******'}}
+              <img
+                  :src="shownCerts.has(cert.id) ?  '/images/eye-open.png' : '/images/eye-hidden.png'"
+                  alt="Logo"
+                  class="eye-icon d-block mx-auto mb-4"
+                  @click="togglePasswordShown(cert)"
+              />
             </td>
             <td>
               <button class="btn btn-primary btn-sm" @click="downloadCertificate(cert.id)">
@@ -190,6 +189,7 @@ export default defineComponent({
     const authStore = useAuthStore();
     const userStore = useUserStore();
     const settingStore = useSettingsStore();
+    const shownCerts = ref(new Set());
 
     const certificates = computed(() => certificateStore.certificates);
     const loading = computed(() => certificateStore.loading);
@@ -261,19 +261,15 @@ export default defineComponent({
       }
     };
 
-    const togglePasswordShown = async (id: number) => {
-      for (const cert of certificateStore.certificates) {
-        if (cert.id == id) {
-          if (cert.pkcs12_password == null) {
-            await certificateStore.fetchCertificatePassword(id);
-          }
-          if (cert.password_shown == false) {
-              cert.password_shown = true;
-          } else {
-              cert.password_shown = false;
-          }
-          return
-        }
+    const togglePasswordShown = async (cert: Certificate) => {
+      if (!cert.pkcs12_password) {
+        await certificateStore.fetchCertificatePassword(cert.id);
+      }
+
+      if (shownCerts.value.has(cert.id)) {
+        shownCerts.value.delete(cert.id)
+      } else {
+        shownCerts.value.add(cert.id)
       }
     };
 
@@ -284,6 +280,7 @@ export default defineComponent({
       error,
       downloadCertificate: certificateStore.downloadCertificate,
       togglePasswordShown,
+      shownCerts,
       confirmDeletion,
       closeDeleteModal,
       deleteCertificate,
@@ -315,16 +312,16 @@ export default defineComponent({
   z-index: 1051;
 }
 
-.input-container {
+.password-cell {
   position: relative; 
-  display: inline-block; 
+  padding-right: 25px;
 }
 
 .input-container input {
   padding-right: 25px; 
 }
 
-.input-container .input-icon {
+.password-cell .eye-icon {
   position: absolute;
   cursor:pointer;
   right: 5px; 
