@@ -88,9 +88,8 @@ impl OidcAuth {
             .set_pkce_verifier(stored_pkce)
             .request_async(&self.http_client)
             .await?;
-
-        // Extract the ID token, verifying the nonce
-        let id_token = token_response.id_token().unwrap();
+        
+        let Some(id_token) = token_response.id_token() else { return Err(anyhow!("No id token")) };
 
         let id_token_verifier = client.id_token_verifier();
 
@@ -112,16 +111,16 @@ impl OidcAuth {
             .await?;
 
         // Use claims from userinfo instead
-        let oidc_id = userinfo.subject().to_string();
-        let user_name = userinfo.preferred_username().unwrap().to_string();
-        let user_email = userinfo.email().unwrap().to_string();
+        let oidc_id = userinfo.subject();
+        let Some(user_name) = userinfo.preferred_username() else { return Err(anyhow!("No user name")) };
+        let Some(user_email) = userinfo.email() else { return Err(anyhow!("No user email")) };
 
         Ok(User{
             id: -1,
-            name: user_name,
-            email: user_email,
+            name: user_name.to_string(),
+            email: user_email.to_string(),
             password_hash: None,
-            oidc_id: Some(oidc_id),
+            oidc_id: Some(oidc_id.to_string()),
             role: UserRole::User
         })
     }

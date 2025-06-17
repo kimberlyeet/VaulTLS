@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import {change_password, current_user, is_setup, login} from "@/api/auth.ts";
+import {change_password, current_user, is_setup, login, logout} from "@/api/auth.ts";
 import type {ChangePasswordReq} from "@/types/Login.ts";
 import type {User} from "@/types/User.ts";
 
@@ -80,13 +80,12 @@ export const useAuthStore = defineStore('auth', {
             } catch (err) {
                 this.error = 'Failed to fetch current user.';
                 console.error(err);
-                this.logout();
+                await this.logout();
             }
         },
 
         // Trigger the login of a user by OIDC
         async finishOIDC() {
-            this.error = null;
             await this.fetchCurrentUser()
             this.setAuthentication(true);
         },
@@ -102,10 +101,17 @@ export const useAuthStore = defineStore('auth', {
             }
         },
 
-        // Logout the user and clear the authentication state
-        logout() {
-            this.error = null;
-            this.setAuthentication(false);
+        // Log out the user and clear the authentication state
+        async logout() {
+            try {
+                this.error = null;
+                await logout()
+                this.setAuthentication(false);
+            } catch (err) {
+                // Can't fail
+                this.error = 'Failed to logout.';
+                console.error(err);
+            }
         },
     },
 });

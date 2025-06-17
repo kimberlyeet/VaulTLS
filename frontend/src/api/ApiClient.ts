@@ -21,7 +21,7 @@ class ApiClient {
             async (error) => {
                 if (error.response && error.response.status === 401) {
                     const authStore = useAuthStore();
-                    authStore.logout();
+                    await authStore.logout();
                     window.location.href = '/';
                 }
                 return Promise.reject(error);
