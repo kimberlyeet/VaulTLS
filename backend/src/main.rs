@@ -439,12 +439,11 @@ async fn rocket() -> _ {
         settings.set_db_encrypted().await.unwrap()
     }
     if !db_initialized {
-        println!("No database found. Initializing.");
+        println!("New database. Set intial database file permissions to 0600");
         // Adjust permissions
         let mut perms = fs::metadata(db_path).unwrap().permissions();
         perms.set_mode(0o600);
         fs::set_permissions(db_path, perms).unwrap();
-        db.initialize_db().expect("Failed initializing database");
     }
 
     let oidc_settings = settings.get_oidc();
