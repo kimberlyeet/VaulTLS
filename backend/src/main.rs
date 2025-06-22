@@ -450,7 +450,7 @@ async fn rocket() -> _ {
         },
         false => None
     };
-    let rocket_secret = env::var("VAULTLS_API_SECRET").expect("VAULTS_API_SECRET is not set");
+    let rocket_secret = env::var("VAULTLS_API_SECRET").expect("VAULTLS_API_SECRET is not set");
     unsafe { env::set_var("ROCKET_SECRET_KEY", rocket_secret) }
 
     let app_state = AppState {
