@@ -30,7 +30,7 @@ pub(crate) struct Certificate {
     #[serde(skip)]
     pub(crate) pkcs12: Vec<u8>,
     #[serde(skip)]
-    pub(crate) pkcs12_password: String,
+    pub(crate) pkcs12_password: Option<String>,
     #[serde(skip)]
     pub(crate) cert: Vec<u8>,
     #[serde(skip)]
@@ -108,7 +108,9 @@ pub(crate) fn create_user_cert(
     ca: &Certificate,
     name: &str,
     validity_in_years: u64,
-    user_id: i64
+    user_id: i64,
+    system_generated_password: bool,
+    pkcs12_password: &Option<String>
 ) -> Result<Certificate, ErrorStack> {
     let ca_cert = X509::from_der(&ca.cert)?;
     let ca_key = PKey::private_key_from_der(&ca.key)?;
@@ -157,19 +159,26 @@ pub(crate) fn create_user_cert(
 
     let mut ca_stack = Stack::new()?;
     ca_stack.push(ca_cert.clone())?;
-
-    // Create password for the PKCS#12
-    let pg = PasswordGenerator {
-        length: 20,
-        numbers: true,
-        lowercase_letters: true,
-        uppercase_letters: true,
-        symbols: true,
-        spaces: false,
-        exclude_similar_characters: false,
-        strict: true,
+    
+    let password = if system_generated_password {
+        // Create password for the PKCS#12
+        let pg = PasswordGenerator {
+            length: 20,
+            numbers: true,
+            lowercase_letters: true,
+            uppercase_letters: true,
+            symbols: true,
+            spaces: false,
+            exclude_similar_characters: false,
+            strict: true,
+        };
+        pg.generate_one().unwrap()
+    } else {
+        match pkcs12_password {
+            Some(p) => p.clone(),
+            None => "".to_string(),
+        }
     };
-    let password = pg.generate_one().unwrap();
 
     // Create the PKCS#12 structure
     let pkcs12 = Pkcs12::builder()
@@ -184,7 +193,7 @@ pub(crate) fn create_user_cert(
         created_on: created_on_unix,
         valid_until: valid_until_unix,
         pkcs12: pkcs12.to_der()?,
-        pkcs12_password: password.to_string(),
+        pkcs12_password: Some(password.to_string()),
         ca_id: ca.id,
         user_id,
         ..Default::default()

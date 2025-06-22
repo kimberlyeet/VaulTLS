@@ -101,6 +101,30 @@
                   placeholder="Enter validity period"
               />
             </div>
+            <div class="mb-3 form-check form-switch" v-if="passwordRule == PasswordRule.System || passwordRule == PasswordRule.Required">
+              <input
+                  type="checkbox"
+                  class="form-check-input"
+                  id="systemGeneratedPassword"
+                  v-model="certReq.system_generated_password"
+                  :disabled="passwordRule == PasswordRule.System"
+                  role="switch"
+              />
+              <label class="form-check-label" for="system_generated_password">
+                System Generated Password
+              </label>
+            </div>
+            <div class="mb-3" v-if="!certReq.system_generated_password || passwordRule == PasswordRule.Optional">
+              <label for="certPassword" class="form-label">Password</label>
+              <input
+                  id="certPassword"
+                  v-model="certReq.pkcs12_password"
+                  type="text"
+                  class="form-control"
+                  placeholder="Enter password"
+                  :disabled="passwordRule == PasswordRule.System"
+              />
+            </div>
             <div v-if="isMailValid" class="mb-3 form-check form-switch">
               <input
                   type="checkbox"
@@ -180,10 +204,15 @@ import {useAuthStore} from "@/stores/auth.ts";
 import {UserRole} from "@/types/User.ts";
 import {useUserStore} from "@/stores/users.ts";
 import {useSettingsStore} from "@/stores/settings.ts";
+import {PasswordRule} from "@/types/Settings.ts";
 
 export default defineComponent({
   name: 'OverviewTab',
-
+  computed: {
+    PasswordRule() {
+      return PasswordRule
+    }
+  },
   setup() {
     const certificateStore = useCertificateStore();
     const authStore = useAuthStore();
@@ -205,6 +234,8 @@ export default defineComponent({
       cert_name: '',
       user_id: 0,
       validity_in_years: 1,
+      system_generated_password: true,
+      pkcs12_password: '',
       notify_user: false,
     });
     const isAdmin = computed(() => {
@@ -213,11 +244,15 @@ export default defineComponent({
     const isMailValid = computed(() => {
       return settingStore.settings.mail.smtp_host.length > 0 && settingStore.settings.mail.smtp_port > 0;
     })
+    const passwordRule = computed(() => {
+      return settingStore.settings.common.password_rule;
+    })
 
 
     // Fetch certificates when the component is mounted
     onMounted(() => {
       certificateStore.fetchCertificates();
+      settingStore.fetchSettings();
       if (isAdmin.value) {
         userStore.fetchUsers();
       }
@@ -293,7 +328,8 @@ export default defineComponent({
       showGenerateModal,
       closeGenerateModal,
       isGenerateModalVisible,
-      isMailValid
+      isMailValid,
+      passwordRule
     };
   },
 });

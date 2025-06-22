@@ -22,6 +22,7 @@ use crate::cert::{get_pem, save_ca, Certificate};
 use crate::data::api::{CallbackQuery, ChangePasswordRequest, CreateCertificateRequest, CreateUserRequest, DownloadResponse, IsSetupResponse, LoginRequest, SetupRequest};
 use crate::data::enums::UserRole;
 use crate::data::error::ApiError;
+use crate::data::enums::PasswordRule;
 use crate::helper::{hash_password, hash_password_string};
 use crate::notification::{MailMessage, Mailer};
 use auth::oidc_auth::OidcAuth;
@@ -85,12 +86,29 @@ async fn create_user_certificate(
     payload: Json<CreateCertificateRequest>,
     authentication: Authenticated
 ) -> Result<Json<Certificate>, ApiError> {
+    let settings = state.settings.lock().await;
     if authentication.claims.role != UserRole::Admin { return Err(ApiError::Forbidden(None)) }
 
     let db = state.db.lock().await;
 
+    let mut user_password: bool = payload.system_generated_password;
+    match settings.password_rule() {
+        PasswordRule::System { .. } => {
+            user_password = true;
+        }
+        PasswordRule::Required { .. } => {
+            if !payload.system_generated_password
+                && payload.pkcs12_password.as_deref().unwrap_or("").trim().is_empty() {
+                return Err(ApiError::BadRequest("Password is not provided, but is required.".to_string()))
+            }
+        }
+        PasswordRule::Optional { .. } => {
+            user_password = false;
+        }
+    }
+
     let ca = db.get_current_ca()?;
-    let mut user_cert = cert::create_user_cert(&ca, &payload.cert_name, payload.validity_in_years.unwrap_or(1), payload.user_id)?;
+    let mut user_cert = cert::create_user_cert(&ca, &payload.cert_name, payload.validity_in_years.unwrap_or(1), payload.user_id, user_password, &payload.pkcs12_password)?;
 
     db.insert_user_cert(&mut user_cert)?;
 

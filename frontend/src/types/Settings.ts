@@ -3,9 +3,15 @@ export enum Encryption {
     TLS = 1,
     STARTTLS = 2
 }
+export enum PasswordRule {
+    Optional = 0,
+    Required = 1,
+    System = 2
+}
 export interface Settings {
     common: {
         password_enabled: boolean;
+        password_rule: PasswordRule;
         vaultls_url: string;
     },
     mail: {

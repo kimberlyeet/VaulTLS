@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import {Encryption, type Settings} from '@/types/Settings';
+import {Encryption, PasswordRule, type Settings} from '@/types/Settings';
 import {
     fetchSettings,
     putSettings
@@ -8,6 +8,7 @@ import {
 const defaultSettings: Settings = {
     common: {
         password_enabled: false,
+        password_rule: PasswordRule.Optional,
         vaultls_url: '',
     },
     mail: {

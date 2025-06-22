@@ -7,7 +7,7 @@ use rocket::serde::json::serde_json;
 use rocket::serde::{Deserialize, Serialize};
 use rocket::serde::ser::SerializeStruct;
 use crate::ApiError;
-use crate::data::enums::MailEncryption;
+use crate::data::enums::{MailEncryption, PasswordRule};
 use crate::constants::SETTINGS_FILE_PATH;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
@@ -49,7 +49,9 @@ impl Serialize for FrontendSettings {
 pub(crate) struct Common {
     password_enabled: bool,
     secure_cookies: bool, 
-    vaultls_url: String
+    vaultls_url: String,
+    #[serde(default)]
+    password_rule: PasswordRule,
 }
 
 impl Common {
@@ -216,5 +218,9 @@ impl Settings {
     /// Check if the secure cookies is enabled.
     pub(crate) fn secure_cookies(&self) -> bool {
         self.common.secure_cookies
+    }
+
+    pub(crate) fn password_rule(&self) -> PasswordRule {
+        self.common.password_rule
     }
 }

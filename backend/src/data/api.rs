@@ -49,7 +49,9 @@ pub struct CreateCertificateRequest {
     pub cert_name: String,
     pub user_id: i64,
     pub validity_in_years: Option<u64>,
-    pub notify_user: Option<bool>
+    pub notify_user: Option<bool>,
+    pub system_generated_password: bool,
+    pub pkcs12_password: Option<String>,
 }
 
 pub struct DownloadResponse {
