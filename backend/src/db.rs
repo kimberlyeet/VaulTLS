@@ -33,17 +33,6 @@ impl VaulTLSDB {
 
         }
         connection.pragma_update(None, "foreign_keys", &"ON")?;
-
-        if !db_encrypted {
-            if let Ok(ref db_secret) = db_secret {
-                println!("Migrating to encrypted database");
-                Self::create_encrypt_db(&connection, db_secret)?;
-                drop(connection);
-                let conn = Self::migrate_to_encrypted_db(&db_secret)?;
-                return Ok(Self { connection: conn});
-            }
-        }
-
         // This if statement can be removed in a future version
         if db_initialized {
             let user_version: i32 = connection
@@ -54,8 +43,18 @@ impl VaulTLSDB {
                 connection.execute("PRAGMA user_version = 1;", [])?;
             }
         }
-
+        
         Self::migrate_database(&connection)?;
+
+        if !db_encrypted {
+            if let Ok(ref db_secret) = db_secret {
+                println!("Migrating to encrypted database");
+                Self::create_encrypt_db(&connection, db_secret)?;
+                drop(connection);
+                let conn = Self::migrate_to_encrypted_db(&db_secret)?;
+                return Ok(Self { connection: conn});
+            }
+        }
 
         Ok(Self { connection})
     }
@@ -104,6 +103,7 @@ impl VaulTLSDB {
 
         for (version, content) in migrations {
             if user_version < version {
+                println!("Running database migration to version {}", version);
                 conn.execute(&content, [])?;
                 conn.execute(
                     &format!("PRAGMA user_version = '{}';", version),
