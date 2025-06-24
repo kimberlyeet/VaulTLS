@@ -3,6 +3,6 @@ export interface CertificateRequirements {
     user_id: number;
     validity_in_years: number;
     system_generated_password: boolean;
-    pkcs12_password: string | null;
+    pkcs12_password: string;
     notify_user: boolean;
 }

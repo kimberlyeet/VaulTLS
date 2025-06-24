@@ -11,7 +11,7 @@ import type {CertificateRequirements} from "@/types/CertificateRequirements.ts";
 
 export const useCertificateStore = defineStore('certificate', {
     state: () => ({
-        certificates: [] as Certificate[],
+        certificates: new Map<number, Certificate>(),
         loading: false,
         error: null as string | null,
     }),
@@ -22,7 +22,20 @@ export const useCertificateStore = defineStore('certificate', {
             this.loading = true;
             this.error = null;
             try {
-                this.certificates = await fetchCertificates();
+                const new_certs = await fetchCertificates();
+                for (const cert of new_certs) {
+                    if (!this.certificates.has(cert.id)) {
+                        this.certificates.set(cert.id, cert);
+                    }
+                }
+
+                const newIds = new Set<number>(new_certs.map(cert => cert.id));
+                for (const existingId of this.certificates.keys()) {
+                    if (!newIds.has(existingId)) {
+                        this.certificates.delete(existingId);
+                    }
+                }
+
             } catch (err) {
                 this.error = 'Failed to fetch certificates.';
                 console.error(err);
@@ -34,11 +47,9 @@ export const useCertificateStore = defineStore('certificate', {
         async fetchCertificatePassword(id: number): Promise<void> {
             try {
                 const pkcs12_password = await fetchCertificatePassword(id);
-                for (const cert of this.certificates) {
-                    if (cert.id == id) {
-                        cert.pkcs12_password = pkcs12_password
-                        return
-                    }
+                const current_cert = this.certificates.get(id);
+                if (current_cert) {
+                    current_cert.pkcs12_password = pkcs12_password;
                 }
             } catch (err) {
                 this.error = 'Failed to fetch certificates.';
@@ -73,7 +84,7 @@ export const useCertificateStore = defineStore('certificate', {
             this.error = null;
             try {
                 await createCertificate(certReq);
-                this.certificates = await fetchCertificates();
+                await this.fetchCertificates();
             } catch (err) {
                 this.error = 'Failed to create the certificate.';
                 console.error(err);
@@ -88,7 +99,7 @@ export const useCertificateStore = defineStore('certificate', {
             this.error = null;
             try {
                 await deleteCertificate(id);
-                this.certificates = await fetchCertificates();
+                await this.fetchCertificates();
             } catch (err) {
                 this.error = 'Failed to delete the certificate.';
                 console.error(err);

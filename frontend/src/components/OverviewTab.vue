@@ -15,13 +15,25 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="cert in certificates" :key="cert.id">
+          <tr v-for="cert in certificates.values()" :key="cert.id">
             <td v-if="isAdmin">{{ userStore.idToName(cert.user_id) }}</td>
             <td>{{ cert.name }}</td>
             <td>{{ new Date(cert.created_on).toLocaleDateString() }}</td>
             <td>{{ new Date(cert.valid_until).toLocaleDateString() }}</td>
             <td class="password-cell">
-              {{ shownCerts.has(cert.id) ? cert.pkcs12_password : '*******'}}
+              <template v-if="shownCerts.has(cert.id)">
+                <input
+                    type="text"
+                    :value="cert.pkcs12_password"
+                    readonly
+                    class="input-container form-control form-control-sm me-2"
+                    style="font-family: monospace;"
+                    @mousedown="(e) => (e.target as HTMLInputElement).select()"
+                />
+              </template>
+              <template v-else>
+                <span style="display: inline-block;">•••••••</span>
+              </template>
               <img
                   :src="shownCerts.has(cert.id) ?  '/images/eye-open.png' : '/images/eye-hidden.png'"
                   alt="Logo"
@@ -101,7 +113,7 @@
                   placeholder="Enter validity period"
               />
             </div>
-            <div class="mb-3 form-check form-switch" v-if="passwordRule == PasswordRule.System || passwordRule == PasswordRule.Required">
+            <div class="mb-3 form-check form-switch">
               <input
                   type="checkbox"
                   class="form-check-input"
@@ -114,7 +126,7 @@
                 System Generated Password
               </label>
             </div>
-            <div class="mb-3" v-if="!certReq.system_generated_password || passwordRule == PasswordRule.Optional">
+            <div class="mb-3" v-if="!certReq.system_generated_password">
               <label for="certPassword" class="form-label">Password</label>
               <input
                   id="certPassword"
@@ -122,7 +134,6 @@
                   type="text"
                   class="form-control"
                   placeholder="Enter password"
-                  :disabled="passwordRule == PasswordRule.System"
               />
             </div>
             <div v-if="isMailValid" class="mb-3 form-check form-switch">
@@ -145,7 +156,7 @@
             <button
                 type="button"
                 class="btn btn-primary"
-                :disabled="loading"
+                :disabled="loading || ((!certReq.system_generated_password && certReq.pkcs12_password.length == 0) && passwordRule == PasswordRule.Required)"
                 @click="createCertificate"
             >
               <span v-if="loading">Creating...</span>
@@ -230,11 +241,14 @@ export default defineComponent({
     const certToDelete = ref<Certificate | null>(null);
 
     // Reactive form state for Generate
+    const passwordRule = computed(() => {
+      return settingStore.settings.common.password_rule;
+    })
     const certReq = reactive<CertificateRequirements>({
       cert_name: '',
       user_id: 0,
       validity_in_years: 1,
-      system_generated_password: true,
+      system_generated_password: passwordRule.value == PasswordRule.System,
       pkcs12_password: '',
       notify_user: false,
     });
@@ -243,9 +257,6 @@ export default defineComponent({
     });
     const isMailValid = computed(() => {
       return settingStore.settings.mail.smtp_host.length > 0 && settingStore.settings.mail.smtp_port > 0;
-    })
-    const passwordRule = computed(() => {
-      return settingStore.settings.common.password_rule;
     })
 
 
@@ -268,6 +279,8 @@ export default defineComponent({
       certReq.cert_name = '';
       certReq.user_id = 0;
       certReq.validity_in_years = 1;
+      certReq.pkcs12_password = '';
+      certReq.notify_user = false;
     };
 
     const createCertificate = async () => {
@@ -349,17 +362,19 @@ export default defineComponent({
 }
 
 .password-cell {
+  width: 250px;
   position: relative; 
   padding-right: 25px;
 }
 
-.input-container input {
+.input-container {
+  width: 200px;
   padding-right: 25px; 
 }
 
 .password-cell .eye-icon {
   position: absolute;
-  cursor:pointer;
+  cursor: pointer;
   right: 5px; 
   top: 50%; 
   transform: translateY(-50%);

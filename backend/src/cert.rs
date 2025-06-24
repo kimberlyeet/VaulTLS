@@ -30,7 +30,7 @@ pub(crate) struct Certificate {
     #[serde(skip)]
     pub(crate) pkcs12: Vec<u8>,
     #[serde(skip)]
-    pub(crate) pkcs12_password: Option<String>,
+    pub(crate) pkcs12_password: String,
     #[serde(skip)]
     pub(crate) cert: Vec<u8>,
     #[serde(skip)]
@@ -193,7 +193,7 @@ pub(crate) fn create_user_cert(
         created_on: created_on_unix,
         valid_until: valid_until_unix,
         pkcs12: pkcs12.to_der()?,
-        pkcs12_password: Some(password.to_string()),
+        pkcs12_password: password.to_string(),
         ca_id: ca.id,
         user_id,
         ..Default::default()

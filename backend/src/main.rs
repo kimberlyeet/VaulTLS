@@ -14,7 +14,6 @@ use rocket::response::Redirect;
 use rocket::tokio::sync::Mutex;
 use rocket_cors::{AllowedOrigins, CorsOptions};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use cert::create_ca;
 use db::VaulTLSDB;
 use settings::Settings;
@@ -93,18 +92,16 @@ async fn create_user_certificate(
 
     let mut user_password: bool = payload.system_generated_password;
     match settings.password_rule() {
-        PasswordRule::System { .. } => {
+        PasswordRule::System => {
             user_password = true;
         }
-        PasswordRule::Required { .. } => {
+        PasswordRule::Required => {
             if !payload.system_generated_password
                 && payload.pkcs12_password.as_deref().unwrap_or("").trim().is_empty() {
                 return Err(ApiError::BadRequest("Password is not provided, but is required.".to_string()))
             }
         }
-        PasswordRule::Optional { .. } => {
-            user_password = false;
-        }
+        PasswordRule::Optional => {}
     }
 
     let ca = db.get_current_ca()?;
@@ -158,11 +155,11 @@ async fn fetch_certificate_password(
     state: &State<AppState>,
     id: i64,
     authentication: Authenticated
-) -> Result<Json<serde_json::Value>, ApiError> {
+) -> Result<Json<String>, ApiError> {
     let db = state.db.lock().await;
     let (user_id, pkcs12_password) = db.get_user_cert_pkcs12_password(id)?;
     if user_id != authentication.claims.id && authentication.claims.role != UserRole::Admin { return Err(ApiError::Forbidden(None)) }
-    Ok(Json(json!({ "pkcs12_password": pkcs12_password })))
+    Ok(Json(pkcs12_password))
 }
 
 #[delete("/api/certificates/<id>")]

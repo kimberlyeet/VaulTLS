@@ -6,6 +6,7 @@ use anyhow::anyhow;
 use argon2::password_hash::PasswordHashString;
 use rusqlite::{params, Connection, Result};
 use include_dir::{include_dir, Dir};
+use rusqlite_migration::Migrations;
 use crate::{ApiError, Certificate, User};
 use crate::constants::{DB_FILE_PATH, TEMP_DB_FILE_PATH};
 use crate::data::enums::UserRole;
@@ -22,7 +23,7 @@ impl VaulTLSDB {
         let db_path = Path::new(DB_FILE_PATH);
         let db_initialized = db_path.exists();
 
-        let connection = Connection::open(DB_FILE_PATH)?;
+        let mut connection = Connection::open(DB_FILE_PATH)?;
         let db_secret = env::var("VAULTLS_DB_SECRET");
         if db_encrypted {
             if let Ok(ref db_secret) = db_secret {
@@ -36,15 +37,15 @@ impl VaulTLSDB {
         // This if statement can be removed in a future version
         if db_initialized {
             let user_version: i32 = connection
-                .query_row("PRAGMA user_version;", [], |row| row.get(0))
+                .query_one("SELECT user_version FROM pragma_user_version", [], |row| row.get(0))
                 .expect("Failed to get PRAGMA user_version");
             // Database already initialized, update user_version to 1
             if user_version == 0 {
-                connection.execute("PRAGMA user_version = 1;", [])?;
+                connection.pragma_update(None, "user_version", &"1")?;
             }
         }
         
-        Self::migrate_database(&connection)?;
+        Self::migrate_database(&mut connection)?;
 
         if !db_encrypted {
             if let Ok(ref db_secret) = db_secret {
@@ -93,49 +94,11 @@ impl VaulTLSDB {
         Ok(conn)
     }
 
-    fn migrate_database(conn: &Connection) -> Result<()> {
-        let migrations: Vec<(i32, String)> = Self::get_migrations()?;
-        let user_version: i32 = conn
-            .query_row("PRAGMA user_version;", [], |row| row.get(0))
-            .expect("Failed to get PRAGMA user_version");
-        
-        println!("Database version: {}", user_version);
-
-        for (version, content) in migrations {
-            if user_version < version {
-                println!("Running database migration to version {}", version);
-                conn.execute(&content, [])?;
-                conn.execute(
-                    &format!("PRAGMA user_version = '{}';", version),
-                    []
-                )?;
-            }
-
-        }
+    fn migrate_database(conn: &mut Connection) -> Result<()> {
+        let migrations = Migrations::from_directory(&MIGRATIONS_DIR).expect("Failed to load migrations");
+        migrations.to_latest(conn).expect("Failed to migrate database");
 
         Ok(())
-    }
-
-    fn get_migrations() -> Result<Vec<(i32, String)>> {
-        let mut migrations = vec![];
-
-        for file in MIGRATIONS_DIR.files() {
-            if let Some(name) = file.path().file_name().and_then(|s| s.to_str()) {
-                if !name.ends_with(".sql") {
-                    continue;
-                }
-
-                if let Some((version_part, name_part_with_ext)) = name.split_once('-') {
-                    if let Ok(version) = version_part.parse::<i32>() {
-                        let content = file.contents_utf8().unwrap_or_default().to_string();
-                        migrations.push((version, content));
-                    }
-                }
-            }
-        }
-
-        migrations.sort_by_key(|(num, _)| *num);
-        Ok(migrations)
     }
 
     /// Insert a new CA certificate into the database
@@ -190,7 +153,7 @@ impl VaulTLSDB {
                     created_on: row.get(2)?,
                     valid_until: row.get(3)?,
                     pkcs12: row.get(4)?,
-                    pkcs12_password: row.get(5)?,
+                    pkcs12_password: row.get(5).unwrap_or_default(),
                     user_id: row.get(6)?,
                     ..Default::default()
                 })
@@ -211,12 +174,12 @@ impl VaulTLSDB {
 
     /// Retrieve the certificate's PKCS12 data with id from the database
     /// Returns the id of the user the certificate belongs to and the PKCS12 password
-    pub(crate) fn get_user_cert_pkcs12_password(&self, id: i64) -> Result<(i64, Option<String>), rusqlite::Error> {
+    pub(crate) fn get_user_cert_pkcs12_password(&self, id: i64) -> Result<(i64, String), rusqlite::Error> {
         let mut stmt = self.connection.prepare("SELECT user_id, pkcs12_password FROM user_certificates WHERE id = ?1")?;
         
         stmt.query_row(
             params![id],
-            |row| Ok((row.get(0)?, row.get(1)?)),
+            |row| Ok((row.get(0)?, row.get(1).unwrap_or_default())),
         )
     }
 

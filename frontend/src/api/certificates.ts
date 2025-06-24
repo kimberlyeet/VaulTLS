@@ -1,14 +1,13 @@
 import ApiClient from './ApiClient';
-import type { Certificate } from '@/types/Certificate';
+import type {Certificate} from '@/types/Certificate';
 import type {CertificateRequirements} from "@/types/CertificateRequirements.ts";
 
 export const fetchCertificates = async (): Promise<Certificate[]> => {
     return await ApiClient.get<Certificate[]>('/certificates');
 };
 
-export const fetchCertificatePassword = async (id: number): Promise<string | null> => {
-    const resp = await ApiClient.get<Certificate>(`/certificates/${id}/password`);
-    return resp.pkcs12_password;
+export const fetchCertificatePassword = async (id: number): Promise<string> => {
+    return await ApiClient.get<string>(`/certificates/${id}/password`);
 };
 
 export const downloadCertificate = async (id: number): Promise<{ filename: string; blob: Blob }> => {
