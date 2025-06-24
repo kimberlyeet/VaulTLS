@@ -238,100 +238,75 @@
   </div>
 </template>
 
-<script lang="ts">
-import {computed, defineComponent, ref, onMounted} from 'vue';
+<script setup lang="ts">
+import { computed, ref, onMounted } from 'vue';
 import { useSettingsStore } from '@/stores/settings';
 import { useAuthStore } from '@/stores/auth';
-import {type User, UserRole} from "@/types/User.ts";
-import {useUserStore} from "@/stores/users.ts";
-import {Encryption, PasswordRule} from "@/types/Settings.ts";
+import { type User, UserRole } from "@/types/User.ts";
+import { useUserStore } from "@/stores/users.ts";
+import { Encryption, PasswordRule } from "@/types/Settings.ts";
 
-export default defineComponent({
-  name: 'SettingsTab',
-  computed: {
-    Encryption() {
-      return Encryption
-    },
-    PasswordRule() {
-      return PasswordRule
-    }
-  },
-  setup() {
-    const settingsStore = useSettingsStore();
-    const authStore = useAuthStore();
-    const userStore = useUserStore();
+// Stores
+const settingsStore = useSettingsStore();
+const authStore = useAuthStore();
+const userStore = useUserStore();
 
-    const settings = computed(() => settingsStore.settings);
-    const showPasswordDialog = ref(false);
-    const changePasswordReq = ref({ oldPassword: '', newPassword: '' });
-    const confirmPassword = ref('');
-    const current_user = computed(() => authStore.current_user);
-    const editableUser = ref<User | null>(null);
-    const settings_error = computed(() => settingsStore.error);
-    const user_error = computed(() => userStore.error);
-    const password_error = computed(() => authStore.error);
-    const saved_successfully = ref(false);
+// Computed state
+const settings = computed(() => settingsStore.settings);
+const current_user = computed(() => authStore.current_user);
+const settings_error = computed(() => settingsStore.error);
+const user_error = computed(() => userStore.error);
+const password_error = computed(() => authStore.error);
 
-    const canChangePassword = computed(() =>
-        changePasswordReq.value.newPassword === confirmPassword.value &&
-        changePasswordReq.value.newPassword.length > 0
-    );
+const isAdmin = computed(() => authStore.current_user?.role === UserRole.Admin);
 
-    const isAdmin = computed(() => authStore.current_user?.role === UserRole.Admin);
+const canChangePassword = computed(() =>
+    changePasswordReq.value.newPassword === confirmPassword.value &&
+    changePasswordReq.value.newPassword.length > 0
+);
 
-    const changePassword = async () => {
-      const req = {
-        old_password: changePasswordReq.value.oldPassword,
-        new_password: changePasswordReq.value.newPassword
-      };
-      await authStore.change_password(req);
-      showPasswordDialog.value = false;
-      changePasswordReq.value = { oldPassword: '', newPassword: '' };
-      confirmPassword.value = '';
-    };
+// Local state
+const showPasswordDialog = ref(false);
+const changePasswordReq = ref({ oldPassword: '', newPassword: '' });
+const confirmPassword = ref('');
+const editableUser = ref<User | null>(null);
+const saved_successfully = ref(false);
 
-    const saveSettings = async () => {
-      saved_successfully.value = false;
-      let success = true;
-      if (current_user.value?.role == UserRole.Admin) {
-        success &&= await settingsStore.saveSettings();
-      }
+// Methods
+const changePassword = async () => {
+  const req = {
+    old_password: changePasswordReq.value.oldPassword,
+    new_password: changePasswordReq.value.newPassword,
+  };
+  await authStore.change_password(req);
+  showPasswordDialog.value = false;
+  changePasswordReq.value = { oldPassword: '', newPassword: '' };
+  confirmPassword.value = '';
+};
 
-      if (editableUser.value) {
-        success &&= await userStore.updateUser(editableUser.value);
-        await authStore.fetchCurrentUser();
-      }
-      saved_successfully.value = success;
-    }
+const saveSettings = async () => {
+  saved_successfully.value = false;
+  let success = true;
 
-    onMounted(async () => {
-      if (isAdmin.value) {
-        await settingsStore.fetchSettings();
-      }
-      if (current_user.value) {
-        editableUser.value = { ...current_user.value };
-      }
-    });
+  if (current_user.value?.role === UserRole.Admin) {
+    success &&= await settingsStore.saveSettings();
+  }
 
-    return {
-      settings,
-      editableUser,
-      saveSettings,
-      showPasswordDialog,
-      changePasswordReq,
-      confirmPassword,
-      canChangePassword,
-      changePassword,
-      authStore,
-      isAdmin,
-      settings_error,
-      user_error,
-      password_error,
-      saved_successfully
-    };
-  },
+  if (editableUser.value) {
+    success &&= await userStore.updateUser(editableUser.value);
+    await authStore.fetchCurrentUser();
+  }
+
+  saved_successfully.value = success;
+};
+
+onMounted(async () => {
+  if (isAdmin.value) {
+    await settingsStore.fetchSettings();
+  }
+  if (current_user.value) {
+    editableUser.value = { ...current_user.value };
+  }
 });
-</script>
 
-<style scoped>
-</style>
+</script>

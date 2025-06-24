@@ -81,55 +81,40 @@
   </div>
 </template>
 
-<script lang="ts">
-import {defineComponent, onMounted, ref} from 'vue';
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
 import router from '../router/router';
 import { setup } from "@/api/auth.ts";
 import { useAuthStore } from '@/stores/auth';
 
-export default defineComponent({
-  name: 'FirstSetupView',
-  setup() {
-    const authStore = useAuthStore();
-    const username = ref('');
-    const email = ref('');
-    const ca_name = ref('');
-    const ca_validity_in_years = ref(10);
-    const password = ref('');
-    const errorMessage = ref('');
+const authStore = useAuthStore();
 
-    onMounted(async () => {
-      if (!authStore.isInitialized) {
-        await authStore.init();
-      }
-    });
+const username = ref('');
+const email = ref('');
+const ca_name = ref('');
+const ca_validity_in_years = ref(10);
+const password = ref('');
+const errorMessage = ref('');
 
-    const setupPassword = async () => {
-      try {
-        await setup({
-          name: username.value,
-          email: email.value,
-          ca_name: ca_name.value,
-          ca_validity_in_years: ca_validity_in_years.value,
-          password: password.value || null
-        });
-        await authStore.init();
-        await router.replace({ name: 'Login' });
-      } catch (err) {
-        errorMessage.value = 'Failed to set up.';
-      }
-    };
-
-    return {
-      authStore,
-      username,
-      email,
-      ca_name,
-      ca_validity_in_years,
-      password,
-      errorMessage,
-      setupPassword,
-    };
-  },
+onMounted(async () => {
+  if (!authStore.isInitialized) {
+    await authStore.init();
+  }
 });
+
+const setupPassword = async () => {
+  try {
+    await setup({
+      name: username.value,
+      email: email.value,
+      ca_name: ca_name.value,
+      ca_validity_in_years: ca_validity_in_years.value,
+      password: password.value || null,
+    });
+    await authStore.init();
+    await router.replace({ name: 'Login' });
+  } catch (err) {
+    errorMessage.value = 'Failed to set up.';
+  }
+};
 </script>

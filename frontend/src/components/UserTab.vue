@@ -170,80 +170,64 @@
   </div>
 </template>
 
-<script lang="ts">
-import {defineComponent, onMounted, ref} from 'vue'
-import {type CreateUserRequest, UserRole, type User} from '@/types/User'
-import {useUserStore} from "@/stores/users.ts";
-import {useCertificateStore} from "@/stores/certificates.ts";
+<script setup lang="ts">
+import { onMounted, ref } from 'vue';
+import { type CreateUserRequest, UserRole, type User } from '@/types/User';
+import { useUserStore } from '@/stores/users.ts';
+import { useCertificateStore } from '@/stores/certificates.ts';
 
-export default defineComponent({
-  name: 'UserTab',
-  computed: {
-    UserRole() {
-      return UserRole
-    }
-  },
-  setup() {
-    const userStore = useUserStore();
-    const isCreateModalVisible = ref(false);
-    const isDeleteModalVisible = ref(false);
-    const userToDelete = ref<User | null>(null);
-    const newUser = ref<CreateUserRequest>({
-      user_name: '',
-      user_email: '',
-      password: '',
-      role: UserRole.User
-    });
+// Stores
+const userStore = useUserStore();
 
-    onMounted(async () => {
-      await userStore.fetchUsers()
-    });
+// Local state
+const isCreateModalVisible = ref(false);
+const isDeleteModalVisible = ref(false);
+const userToDelete = ref<User | null>(null);
+const newUser = ref<CreateUserRequest>({
+  user_name: '',
+  user_email: '',
+  password: '',
+  role: UserRole.User,
+});
 
-    const handleCreateUser = async () => {
-      await userStore.createUser(newUser.value)
-      isCreateModalVisible.value = false;
-      // Reset form
-      newUser.value = {
-        user_name: '',
-        user_email: '',
-        password: '',
-        role: UserRole.User
-      };
-    }
+// Lifecycle hook
+onMounted(async () => {
+  await userStore.fetchUsers();
+});
 
-    const confirmDeleteUser = async (user: User) => {
-      userToDelete.value = user;
-      isDeleteModalVisible.value = true;
-    };
+// Methods
+const handleCreateUser = async () => {
+  await userStore.createUser(newUser.value);
+  isCreateModalVisible.value = false;
+  // Reset form
+  newUser.value = {
+    user_name: '',
+    user_email: '',
+    password: '',
+    role: UserRole.User,
+  };
+};
 
-    const closeDeleteModal = () => {
-      userToDelete.value = null;
-      isDeleteModalVisible.value = false;
-    };
+const confirmDeleteUser = async (user: User) => {
+  userToDelete.value = user;
+  isDeleteModalVisible.value = true;
+};
 
-    const deleteUser = async () => {
-      if (userToDelete.value) {
-        await userStore.deleteUser(userToDelete.value.id);
-        const certStore = useCertificateStore();
-        await certStore.fetchCertificates();
-        closeDeleteModal();
-      }
-    };
+const closeDeleteModal = () => {
+  userToDelete.value = null;
+  isDeleteModalVisible.value = false;
+};
 
-    return {
-      userStore,
-      isCreateModalVisible,
-      isDeleteModalVisible,
-      closeDeleteModal,
-      deleteUser,
-      newUser,
-      handleCreateUser,
-      userToDelete,
-      confirmDeleteUser
-    };
+const deleteUser = async () => {
+  if (userToDelete.value) {
+    await userStore.deleteUser(userToDelete.value.id);
+    const certStore = useCertificateStore();
+    await certStore.fetchCertificates();
+    closeDeleteModal();
   }
-})
+};
 </script>
+
 
 <style scoped>
 

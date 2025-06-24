@@ -52,42 +52,29 @@
   </div>
 </template>
 
-<script lang="ts">
-import { defineComponent, computed } from 'vue';
+<script setup lang="ts">
+import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ProfileCard from './ProfileCard.vue';
-import {UserRole} from "@/types/User.ts";
-import {useAuthStore} from "@/stores/auth.ts";
+import { UserRole } from "@/types/User.ts";
+import { useAuthStore } from "@/stores/auth.ts";
 
-export default defineComponent({
-  name: 'Sidebar',
-  components: { ProfileCard },
-  setup() {
-    const route = useRoute();
-    const router = useRouter();
-    const authStore = useAuthStore();
+// Register component (in script setup you still import and then use it in template)
+const route = useRoute();
+const router = useRouter();
+const authStore = useAuthStore();
 
-    const activeRouteName = computed(() => route.name);
-    const isAdmin = computed(() => authStore.current_user?.role == UserRole.Admin);
+const activeRouteName = computed(() => route.name);
+const isAdmin = computed(() => authStore.current_user?.role === UserRole.Admin);
 
-    const goToRoute = (name: string) => {
-      router.push({ name });
-    };
+const goToRoute = (name: string) => {
+  router.push({ name });
+};
 
-    const handleLogout = async () => {
-      await authStore.logout();
-      goToRoute('Login');
-    };
-
-
-    return {
-      activeRouteName,
-      isAdmin,
-      goToRoute,
-      handleLogout
-    };
-  },
-});
+const handleLogout = async () => {
+  await authStore.logout();
+  goToRoute('Login');
+};
 </script>
 
 <style scoped>

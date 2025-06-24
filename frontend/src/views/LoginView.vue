@@ -43,52 +43,38 @@
   </div>
 </template>
 
-<script lang="ts">
-import {computed, defineComponent, onMounted, ref} from 'vue';
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import router from "@/router/router.ts";
 
-export default defineComponent({
-  name: 'LoginView',
-  setup() {
-    const email = ref('');
-    const password = ref('');
-    const loginError = ref('');
-    const authStore = useAuthStore();
-    const password_auth = computed(() => authStore.password_auth);
-    const oidc_url = computed(()  => authStore.oidc_url);
+const email = ref('');
+const password = ref('');
+const loginError = ref('');
+const authStore = useAuthStore();
 
-    onMounted(async () => {
-      if (!authStore.isInitialized) {
-        await authStore.init();
-      }
-    });
+const password_auth = computed(() => authStore.password_auth);
+const oidc_url = computed(() => authStore.oidc_url);
 
-    const submitLogin = async () => {
-      loginError.value = '';
-      const success = await authStore.login(email.value, password.value);
-      if (!success) {
-        loginError.value = 'Login failed. Please try again.';
-      } else {
-        await router.push("Overview");
-      }
-    };
-
-    const redirectToOIDC = () => {
-      if (authStore.oidc_url) {
-        window.location.href = `${window.location.origin}/api/auth/oidc/login`
-      }
-    };
-
-    return {
-      email,
-      password,
-      loginError,
-      submitLogin,
-      password_auth,
-      oidc_url,
-      redirectToOIDC,
-    };
-  },
+onMounted(async () => {
+  if (!authStore.isInitialized) {
+    await authStore.init();
+  }
 });
+
+const submitLogin = async () => {
+  loginError.value = '';
+  const success = await authStore.login(email.value, password.value);
+  if (!success) {
+    loginError.value = 'Login failed. Please try again.';
+  } else {
+    await router.push("Overview");
+  }
+};
+
+const redirectToOIDC = () => {
+  if (authStore.oidc_url) {
+    window.location.href = `${window.location.origin}/api/auth/oidc/login`;
+  }
+};
 </script>

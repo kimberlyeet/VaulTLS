@@ -205,152 +205,121 @@
     </div>
   </div>
 </template>
-
-<script lang="ts">
-import { computed, defineComponent, onMounted, reactive, ref, watch} from 'vue';
+<script setup lang="ts">
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useCertificateStore } from '@/stores/certificates';
 import type { Certificate } from "@/types/Certificate";
 import type { CertificateRequirements } from "@/types/CertificateRequirements";
-import {useAuthStore} from "@/stores/auth.ts";
-import {UserRole} from "@/types/User.ts";
-import {useUserStore} from "@/stores/users.ts";
-import {useSettingsStore} from "@/stores/settings.ts";
-import {PasswordRule} from "@/types/Settings.ts";
+import { useAuthStore } from "@/stores/auth.ts";
+import { UserRole } from "@/types/User.ts";
+import { useUserStore } from "@/stores/users.ts";
+import { useSettingsStore } from "@/stores/settings.ts";
+import { PasswordRule } from "@/types/Settings.ts";
 
-export default defineComponent({
-  name: 'OverviewTab',
-  computed: {
-    PasswordRule() {
-      return PasswordRule
-    }
-  },
-  setup() {
-    const certificateStore = useCertificateStore();
-    const authStore = useAuthStore();
-    const userStore = useUserStore();
-    const settingStore = useSettingsStore();
-    const shownCerts = ref(new Set());
+// stores
+const certificateStore = useCertificateStore();
+const authStore = useAuthStore();
+const userStore = useUserStore();
+const settingStore = useSettingsStore();
 
-    const certificates = computed(() => certificateStore.certificates);
-    const settings = computed(() => settingStore.settings);
-    const loading = computed(() => certificateStore.loading);
-    const error = computed(() => certificateStore.error);
+// local state
+const shownCerts = ref(new Set<number>());
 
-    // Local state for the modals
-    const isDeleteModalVisible = ref(false);
-    const isGenerateModalVisible = ref(false);
-    const certToDelete = ref<Certificate | null>(null);
+const certificates = computed(() => certificateStore.certificates);
+const settings = computed(() => settingStore.settings);
+const loading = computed(() => certificateStore.loading);
+const error = computed(() => certificateStore.error);
 
-    // Reactive form state for Generate
-    const passwordRule = computed(() => {
-      return settings.value?.common.password_rule ?? PasswordRule.Optional;
-    })
-    const certReq = reactive<CertificateRequirements>({
-      cert_name: '',
-      user_id: 0,
-      validity_in_years: 1,
-      system_generated_password: passwordRule.value == PasswordRule.System,
-      pkcs12_password: '',
-      notify_user: false,
-    });
-    const isAdmin = computed(() => {
-      return authStore.current_user !== null && authStore.current_user.role === UserRole.Admin;
-    });
-    const isMailValid = computed(() => {
-      return (settings.value?.mail.smtp_host.length ?? 0) > 0 && (settings.value?.mail.smtp_port ?? 0) > 0;
-    })
-    watch(passwordRule, (newVal) => {
-      certReq.system_generated_password = (newVal === PasswordRule.System);
-    }, { immediate: true });
+const isDeleteModalVisible = ref(false);
+const isGenerateModalVisible = ref(false);
+const certToDelete = ref<Certificate | null>(null);
 
-
-    // Fetch certificates when the component is mounted
-    onMounted(async () => {
-      await certificateStore.fetchCertificates();
-      await settingStore.fetchSettings();
-      if (isAdmin.value) {
-        await userStore.fetchUsers();
-      }
-    });
-
-    const showGenerateModal = async () => {
-      await userStore.fetchUsers();
-      isGenerateModalVisible.value = true;
-    };
-
-    const closeGenerateModal = () => {
-      isGenerateModalVisible.value = false;
-      certReq.cert_name = '';
-      certReq.user_id = 0;
-      certReq.validity_in_years = 1;
-      certReq.pkcs12_password = '';
-      certReq.notify_user = false;
-    };
-
-    const createCertificate = async () => {
-      try {
-        await certificateStore.createCertificate(certReq);
-        closeGenerateModal();
-      } catch (error) {
-        console.error('Error creating certificate:', error);
-      }
-    };
-
-    const confirmDeletion = (cert: Certificate) => {
-      certToDelete.value = cert;
-      isDeleteModalVisible.value = true;
-    };
-
-    const closeDeleteModal = () => {
-      certToDelete.value = null;
-      isDeleteModalVisible.value = false;
-    };
-
-    const deleteCertificate = async () => {
-      if (certToDelete.value) {
-        await certificateStore.deleteCertificate(certToDelete.value.id);
-        closeDeleteModal();
-      }
-    };
-
-    const togglePasswordShown = async (cert: Certificate) => {
-      if (!cert.pkcs12_password) {
-        await certificateStore.fetchCertificatePassword(cert.id);
-      }
-
-      if (shownCerts.value.has(cert.id)) {
-        shownCerts.value.delete(cert.id)
-      } else {
-        shownCerts.value.add(cert.id)
-      }
-    };
-
-    return {
-      certificates,
-      userStore,
-      loading,
-      error,
-      downloadCertificate: certificateStore.downloadCertificate,
-      togglePasswordShown,
-      shownCerts,
-      confirmDeletion,
-      closeDeleteModal,
-      deleteCertificate,
-      isDeleteModalVisible,
-      certToDelete,
-      // Generate certificate related
-      certReq,
-      isAdmin,
-      createCertificate,
-      showGenerateModal,
-      closeGenerateModal,
-      isGenerateModalVisible,
-      isMailValid,
-      passwordRule
-    };
-  },
+const passwordRule = computed(() => {
+  return settings.value?.common.password_rule ?? PasswordRule.Optional;
 });
+
+const certReq = reactive<CertificateRequirements>({
+  cert_name: '',
+  user_id: 0,
+  validity_in_years: 1,
+  system_generated_password: passwordRule.value == PasswordRule.System,
+  pkcs12_password: '',
+  notify_user: false,
+});
+
+const isAdmin = computed(() => {
+  return authStore.current_user !== null && authStore.current_user.role === UserRole.Admin;
+});
+
+const isMailValid = computed(() => {
+  return (settings.value?.mail.smtp_host.length ?? 0) > 0 && (settings.value?.mail.smtp_port ?? 0) > 0;
+});
+
+watch(passwordRule, (newVal) => {
+  certReq.system_generated_password = (newVal === PasswordRule.System);
+}, { immediate: true });
+
+onMounted(async () => {
+  await certificateStore.fetchCertificates();
+  await settingStore.fetchSettings();
+  if (isAdmin.value) {
+    await userStore.fetchUsers();
+  }
+});
+
+const showGenerateModal = async () => {
+  await userStore.fetchUsers();
+  isGenerateModalVisible.value = true;
+};
+
+const closeGenerateModal = () => {
+  isGenerateModalVisible.value = false;
+  certReq.cert_name = '';
+  certReq.user_id = 0;
+  certReq.validity_in_years = 1;
+  certReq.pkcs12_password = '';
+  certReq.notify_user = false;
+};
+
+const createCertificate = async () => {
+    await certificateStore.createCertificate(certReq);
+    closeGenerateModal();
+};
+
+const confirmDeletion = (cert: Certificate) => {
+  certToDelete.value = cert;
+  isDeleteModalVisible.value = true;
+};
+
+const closeDeleteModal = () => {
+  certToDelete.value = null;
+  isDeleteModalVisible.value = false;
+};
+
+const downloadCertificate = async (certId: number) => {
+  await certificateStore.downloadCertificate(certId);
+}
+
+const deleteCertificate = async () => {
+  if (certToDelete.value) {
+    await certificateStore.deleteCertificate(certToDelete.value.id);
+    closeDeleteModal();
+  }
+};
+
+const togglePasswordShown = async (cert: Certificate) => {
+  if (!cert.pkcs12_password) {
+    await certificateStore.fetchCertificatePassword(cert.id);
+  }
+
+  if (shownCerts.value.has(cert.id)) {
+    shownCerts.value.delete(cert.id);
+  } else {
+    shownCerts.value.add(cert.id);
+  }
+};
 </script>
+
 
 <style scoped>
 .modal {

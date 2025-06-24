@@ -13,25 +13,14 @@
   </div>
 </template>
 
-<script lang="ts">
-import { defineComponent, ref } from 'vue';
+<script setup lang="ts">
+import { ref } from 'vue';
 import Sidebar from '@/components/Sidebar.vue';
 
-export default defineComponent({
-  name: 'MainLayout',
-  components: { Sidebar },
-  setup() {
-    const currentTab = ref('Overview');
-    const setTab = (tab: string) => {
-      currentTab.value = tab;
-    };
-
-    return {
-      currentTab,
-      setTab,
-    };
-  },
-});
+const currentTab = ref('Overview');
+const setTab = (tab: string) => {
+  currentTab.value = tab;
+};
 </script>
 
 <style scoped>

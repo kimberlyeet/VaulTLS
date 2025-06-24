@@ -14,37 +14,23 @@
   </div>
 </template>
 
-<script lang="ts">
-import { defineComponent } from 'vue';
-import {useAuthStore} from "@/stores/auth.ts";
+<script setup lang="ts">
+import { useAuthStore } from "@/stores/auth.ts";
 import Avatar from 'vue-boring-avatars';
 
-export default defineComponent({
-  name: 'ProfileCard',
-  components: {
-    Avatar
-  },
-  setup() {
-    const formatEmail = (email?: string) => {
-      return email?.replace('@', '\u200B@');
-    };
+const formatEmail = (email?: string) => {
+  return email?.replace('@', '\u200B@');
+};
 
-    const avatarColors = [
-      '#264653', // Dark blue
-      '#2a9d8f', // Teal
-      '#e9c46a', // Yellow
-      '#f4a261', // Orange
-      '#e76f51'  // Coral
-    ];
+const avatarColors = [
+  '#264653', // Dark blue
+  '#2a9d8f', // Teal
+  '#e9c46a', // Yellow
+  '#f4a261', // Orange
+  '#e76f51'  // Coral
+];
 
-    const authStore = useAuthStore();
-    return {
-      formatEmail,
-      authStore,
-      avatarColors
-    };
-  },
-});
+const authStore = useAuthStore();
 </script>
 
 <style scoped>
