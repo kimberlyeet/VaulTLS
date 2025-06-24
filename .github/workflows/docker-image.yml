@@ -41,17 +41,21 @@ jobs:
       - name: Set lowercase repository name
         run: echo "REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
+      - name: Set platform short name
+        id: platform_name
+        run: echo "PLATFORM_SHORT=$(echo '${{ matrix.platform }}' | awk -F/ '{print $2}')" >> $GITHUB_ENV
+
       - name: Build Docker image for ${{ matrix.platform }}
         run: |
           docker build \
             --platform ${{ matrix.platform }} \
             -f Containerfile \
-            -t ghcr.io/${{ env.REPO_LOWER }}:${{ env.RELEASE_TAG }}-${{ split(matrix.platform, '/')[1] }} \
+            -t ghcr.io/${{ env.REPO_LOWER }}:${{ env.RELEASE_TAG }}-${{ env.PLATFORM_SHORT }} \
             .
 
       - name: Push Docker image for ${{ matrix.platform }}
         run: |
-          docker push ghcr.io/${{ env.REPO_LOWER }}:${{ env.RELEASE_TAG }}-${{ split(matrix.platform, '/')[1] }}
+          docker push ghcr.io/${{ env.REPO_LOWER }}:${{ env.RELEASE_TAG }}-${{ env.PLATFORM_SHORT }}
   create-manifest:
     needs: build-and-push
     runs-on: ubuntu-latest
