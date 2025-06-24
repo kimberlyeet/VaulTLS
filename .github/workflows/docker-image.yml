@@ -46,12 +46,12 @@ jobs:
           docker build \
             --platform ${{ matrix.platform }} \
             -f Containerfile \
-            -t ghcr.io/${{ env.REPO_LOWER }}:${{ env.RELEASE_TAG }}-${{ matrix.platform##*/ }} \
+            -t ghcr.io/${{ env.REPO_LOWER }}:${{ env.RELEASE_TAG }}-${{ split(matrix.platform, '/')[1] }} \
             .
 
       - name: Push Docker image for ${{ matrix.platform }}
         run: |
-          docker push ghcr.io/${{ env.REPO_LOWER }}:${{ env.RELEASE_TAG }}-${{ matrix.platform##*/ }}
+          docker push ghcr.io/${{ env.REPO_LOWER }}:${{ env.RELEASE_TAG }}-${{ split(matrix.platform, '/')[1] }}
   create-manifest:
     needs: build-and-push
     runs-on: ubuntu-latest
