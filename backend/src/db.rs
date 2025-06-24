@@ -118,7 +118,7 @@ impl VaulTLSDB {
     }
 
     /// Retrieve the most recent CA entry from the database
-    pub(crate) fn get_current_ca(&self) -> Result<Certificate, rusqlite::Error> {
+    pub(crate) fn get_current_ca(&self) -> Result<Certificate, ApiError> {
         let mut stmt = self.connection.prepare("SELECT * FROM ca_certificates ORDER BY id DESC LIMIT 1")?;
 
         stmt.query_row([], |row| {
@@ -130,7 +130,7 @@ impl VaulTLSDB {
                 key: row.get(4)?,
                 ..Default::default()
             })
-        })
+        }).map_err(|_| ApiError::BadRequest("VaulTLS has not been set-up yet".to_string()))
     }
 
     /// Retrieve all user certificates from the database
