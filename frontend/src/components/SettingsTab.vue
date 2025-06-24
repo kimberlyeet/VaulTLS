@@ -29,6 +29,18 @@
                 class="form-control"
             />
           </div>
+          <div class="mb-3">
+            <label for="common-password-rule" class="form-label">PKCS12 Password Rules</label>
+            <select
+                id="common-password-rule"
+                v-model="settings.common.password_rule"
+                class="form-select"
+            >
+              <option :value="PasswordRule.Optional">Optional</option>
+              <option :value="PasswordRule.Required">Required</option>
+              <option :value="PasswordRule.System">System Generated</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -232,13 +244,16 @@ import { useSettingsStore } from '@/stores/settings';
 import { useAuthStore } from '@/stores/auth';
 import {type User, UserRole} from "@/types/User.ts";
 import {useUserStore} from "@/stores/users.ts";
-import {Encryption} from "@/types/Settings.ts";
+import {Encryption, PasswordRule} from "@/types/Settings.ts";
 
 export default defineComponent({
   name: 'SettingsTab',
   computed: {
     Encryption() {
       return Encryption
+    },
+    PasswordRule() {
+      return PasswordRule
     }
   },
   setup() {

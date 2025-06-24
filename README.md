@@ -76,6 +76,17 @@ User certificates can be downloaded through the web interface.
 The CA certificate to be integrated with your reverse proxy is available as a file at /app/data/ca.cert 
 and as download via the API endpoint /api/certificates/ca/download.
 
+### PKCS12 Passwords
+By default, PKCS12 passwords are optional and certificates will be generated with no password. In the settings page, the PKCS12 password requirements can be set with the following options:
+
+| PKCS12 Password Rule  | Result                                              |
+|-----------------------|-----------------------------------------------------|
+| Optional              | Passwords are optional and can be blank             |
+| Required              | Passwords are required, but can be system generated |
+| System Generated      | Random passwords will be generated                  |
+
+Passwords are stored in the database and retrieved from the web interface only when the user clicks on view password.
+
 ### Caddy
 To use caddy as reverse proxy for the VaulTLS app, a configuration like the following is required.
 ```caddyfile

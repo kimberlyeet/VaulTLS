@@ -10,15 +10,37 @@
             <th>Name</th>
             <th>Created on</th>
             <th>Valid until</th>
+            <th>Password</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="cert in certificates" :key="cert.id">
+          <tr v-for="cert in certificates.values()" :key="cert.id">
             <td v-if="isAdmin">{{ userStore.idToName(cert.user_id) }}</td>
             <td>{{ cert.name }}</td>
             <td>{{ new Date(cert.created_on).toLocaleDateString() }}</td>
             <td>{{ new Date(cert.valid_until).toLocaleDateString() }}</td>
+            <td class="password-cell">
+              <template v-if="shownCerts.has(cert.id)">
+                <input
+                    type="text"
+                    :value="cert.pkcs12_password"
+                    readonly
+                    class="input-container form-control form-control-sm me-2"
+                    style="font-family: monospace;"
+                    @mousedown="(e) => (e.target as HTMLInputElement).select()"
+                />
+              </template>
+              <template v-else>
+                <span style="display: inline-block;">•••••••</span>
+              </template>
+              <img
+                  :src="shownCerts.has(cert.id) ?  '/images/eye-open.png' : '/images/eye-hidden.png'"
+                  alt="Logo"
+                  class="eye-icon d-block mx-auto mb-4"
+                  @click="togglePasswordShown(cert)"
+              />
+            </td>
             <td>
               <button class="btn btn-primary btn-sm" @click="downloadCertificate(cert.id)">
                 Download
@@ -91,6 +113,29 @@
                   placeholder="Enter validity period"
               />
             </div>
+            <div class="mb-3 form-check form-switch">
+              <input
+                  type="checkbox"
+                  class="form-check-input"
+                  id="systemGeneratedPassword"
+                  v-model="certReq.system_generated_password"
+                  :disabled="passwordRule == PasswordRule.System"
+                  role="switch"
+              />
+              <label class="form-check-label" for="system_generated_password">
+                System Generated Password
+              </label>
+            </div>
+            <div class="mb-3" v-if="!certReq.system_generated_password">
+              <label for="certPassword" class="form-label">Password</label>
+              <input
+                  id="certPassword"
+                  v-model="certReq.pkcs12_password"
+                  type="text"
+                  class="form-control"
+                  placeholder="Enter password"
+              />
+            </div>
             <div v-if="isMailValid" class="mb-3 form-check form-switch">
               <input
                   type="checkbox"
@@ -111,7 +156,7 @@
             <button
                 type="button"
                 class="btn btn-primary"
-                :disabled="loading"
+                :disabled="loading || ((!certReq.system_generated_password && certReq.pkcs12_password.length == 0) && passwordRule == PasswordRule.Required)"
                 @click="createCertificate"
             >
               <span v-if="loading">Creating...</span>
@@ -170,15 +215,21 @@ import {useAuthStore} from "@/stores/auth.ts";
 import {UserRole} from "@/types/User.ts";
 import {useUserStore} from "@/stores/users.ts";
 import {useSettingsStore} from "@/stores/settings.ts";
+import {PasswordRule} from "@/types/Settings.ts";
 
 export default defineComponent({
   name: 'OverviewTab',
-
+  computed: {
+    PasswordRule() {
+      return PasswordRule
+    }
+  },
   setup() {
     const certificateStore = useCertificateStore();
     const authStore = useAuthStore();
     const userStore = useUserStore();
     const settingStore = useSettingsStore();
+    const shownCerts = ref(new Set());
 
     const certificates = computed(() => certificateStore.certificates);
     const loading = computed(() => certificateStore.loading);
@@ -190,10 +241,15 @@ export default defineComponent({
     const certToDelete = ref<Certificate | null>(null);
 
     // Reactive form state for Generate
+    const passwordRule = computed(() => {
+      return settingStore.settings.common.password_rule;
+    })
     const certReq = reactive<CertificateRequirements>({
       cert_name: '',
       user_id: 0,
       validity_in_years: 1,
+      system_generated_password: passwordRule.value == PasswordRule.System,
+      pkcs12_password: '',
       notify_user: false,
     });
     const isAdmin = computed(() => {
@@ -207,6 +263,7 @@ export default defineComponent({
     // Fetch certificates when the component is mounted
     onMounted(() => {
       certificateStore.fetchCertificates();
+      settingStore.fetchSettings();
       if (isAdmin.value) {
         userStore.fetchUsers();
       }
@@ -222,6 +279,8 @@ export default defineComponent({
       certReq.cert_name = '';
       certReq.user_id = 0;
       certReq.validity_in_years = 1;
+      certReq.pkcs12_password = '';
+      certReq.notify_user = false;
     };
 
     const createCertificate = async () => {
@@ -250,12 +309,26 @@ export default defineComponent({
       }
     };
 
+    const togglePasswordShown = async (cert: Certificate) => {
+      if (!cert.pkcs12_password) {
+        await certificateStore.fetchCertificatePassword(cert.id);
+      }
+
+      if (shownCerts.value.has(cert.id)) {
+        shownCerts.value.delete(cert.id)
+      } else {
+        shownCerts.value.add(cert.id)
+      }
+    };
+
     return {
       certificates,
       userStore,
       loading,
       error,
       downloadCertificate: certificateStore.downloadCertificate,
+      togglePasswordShown,
+      shownCerts,
       confirmDeletion,
       closeDeleteModal,
       deleteCertificate,
@@ -268,7 +341,8 @@ export default defineComponent({
       showGenerateModal,
       closeGenerateModal,
       isGenerateModalVisible,
-      isMailValid
+      isMailValid,
+      passwordRule
     };
   },
 });
@@ -285,5 +359,25 @@ export default defineComponent({
 /* When multiple modals are present, we want to stack them properly */
 .modal + .modal {
   z-index: 1051;
+}
+
+.password-cell {
+  width: 250px;
+  position: relative; 
+  padding-right: 25px;
+}
+
+.input-container {
+  width: 200px;
+  padding-right: 25px; 
+}
+
+.password-cell .eye-icon {
+  position: absolute;
+  cursor: pointer;
+  right: 5px; 
+  top: 50%; 
+  transform: translateY(-50%);
+  width: 25px; 
 }
 </style>

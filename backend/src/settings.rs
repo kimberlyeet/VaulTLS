@@ -7,7 +7,7 @@ use rocket::serde::json::serde_json;
 use rocket::serde::{Deserialize, Serialize};
 use rocket::serde::ser::SerializeStruct;
 use crate::ApiError;
-use crate::data::enums::MailEncryption;
+use crate::data::enums::{MailEncryption, PasswordRule};
 use crate::constants::SETTINGS_FILE_PATH;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
@@ -49,6 +49,8 @@ impl Serialize for FrontendSettings {
 pub(crate) struct Common {
     password_enabled: bool,
     vaultls_url: String,
+    #[serde(default)]
+    password_rule: PasswordRule,
 }
 
 impl Common {
@@ -203,5 +205,9 @@ impl Settings {
     /// Check if the password is enabled.
     pub(crate) fn password_enabled(&self) -> bool {
         self.common.password_enabled
+    }
+
+    pub(crate) fn password_rule(&self) -> PasswordRule {
+        self.common.password_rule
     }
 }

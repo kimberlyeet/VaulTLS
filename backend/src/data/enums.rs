@@ -30,3 +30,12 @@ pub(crate) enum MailEncryption {
     TLS = 1,
     STARTTLS = 2
 }
+
+#[derive(Serialize_repr, Deserialize_repr, Clone, Debug, Copy, PartialEq, Eq, Default)]
+#[repr(u8)]
+pub(crate) enum PasswordRule {
+    #[default]
+    Optional = 0,
+    Required = 1,
+    System = 2
+}

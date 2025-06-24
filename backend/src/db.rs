@@ -1,12 +1,17 @@
 use std::{env, fs};
+use std::path::Path;
 use rusqlite::fallible_iterator::FallibleIterator;
 use std::str::FromStr;
 use anyhow::anyhow;
 use argon2::password_hash::PasswordHashString;
 use rusqlite::{params, Connection, Result};
+use include_dir::{include_dir, Dir};
+use rusqlite_migration::Migrations;
 use crate::{ApiError, Certificate, User};
 use crate::constants::{DB_FILE_PATH, TEMP_DB_FILE_PATH};
 use crate::data::enums::UserRole;
+
+static MIGRATIONS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/migrations");
 
 pub(crate) struct VaulTLSDB {
     connection: Connection
@@ -14,7 +19,11 @@ pub(crate) struct VaulTLSDB {
 
 impl VaulTLSDB {
     pub(crate) fn new(db_encrypted: bool) -> anyhow::Result<Self> {
-        let connection = Connection::open(DB_FILE_PATH)?;
+        // The next two lines are for backward compatability and should be removed in a future release
+        let db_path = Path::new(DB_FILE_PATH);
+        let db_initialized = db_path.exists();
+
+        let mut connection = Connection::open(DB_FILE_PATH)?;
         let db_secret = env::var("VAULTLS_DB_SECRET");
         if db_encrypted {
             if let Ok(ref db_secret) = db_secret {
@@ -25,6 +34,18 @@ impl VaulTLSDB {
 
         }
         connection.pragma_update(None, "foreign_keys", &"ON")?;
+        // This if statement can be removed in a future version
+        if db_initialized {
+            let user_version: i32 = connection
+                .query_one("SELECT user_version FROM pragma_user_version", [], |row| row.get(0))
+                .expect("Failed to get PRAGMA user_version");
+            // Database already initialized, update user_version to 1
+            if user_version == 0 {
+                connection.pragma_update(None, "user_version", &"1")?;
+            }
+        }
+        
+        Self::migrate_database(&mut connection)?;
 
         if !db_encrypted {
             if let Ok(ref db_secret) = db_secret {
@@ -73,48 +94,12 @@ impl VaulTLSDB {
         Ok(conn)
     }
 
-    /// Initialize the database with the required tables
-    pub(crate) fn initialize_db(&self) -> Result<(), Box<dyn std::error::Error>> {
-        self.connection.execute(
-            "CREATE TABLE ca_certificates (
-                id INTEGER PRIMARY KEY,
-                created_on INTEGER NOT NULL,
-                valid_until INTEGER NOT NULL,
-                certificate BLOB,
-                key BLOB
-            )",
-            [],
-        )?;
-
-        self.connection.execute(
-            "CREATE TABLE users (
-                id INTEGER PRIMARY KEY,
-                name TEXT NOT NULL,
-                email TEXT NOT NULL,
-                password_hash TEXT,
-                oidc_id TEXT,
-                role INTEGER NOT NULL
-            )",
-            []
-        )?;
-
-        self.connection.execute(
-            "CREATE TABLE user_certificates (
-                id INTEGER PRIMARY KEY,
-                name TEXT NOT NULL,
-                created_on INTEGER NOT NULL,
-                valid_until INTEGER NOT NULL,
-                pkcs12 BLOB,
-                ca_id INTEGER,
-                user_id INTEGER,
-                FOREIGN KEY(ca_id) REFERENCES ca_certificates(id) ON DELETE CASCADE,
-                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-            )",
-            [],
-        )?;
+    fn migrate_database(conn: &mut Connection) -> Result<()> {
+        let migrations = Migrations::from_directory(&MIGRATIONS_DIR).expect("Failed to load migrations");
+        migrations.to_latest(conn).expect("Failed to migrate database");
 
         Ok(())
-    }    
+    }
 
     /// Insert a new CA certificate into the database
     /// Adds id to the Certificate struct
@@ -153,8 +138,8 @@ impl VaulTLSDB {
     /// If user_id is None, all certificates are returned
     pub(crate) fn get_all_user_cert(&self, user_id: Option<i64>) -> Result<Vec<Certificate>, rusqlite::Error>{
         let query = match user_id {
-            Some(_) => "SELECT id, name, created_on, valid_until, pkcs12, user_id FROM user_certificates WHERE user_id = ?1",
-            None => "SELECT id, name, created_on, valid_until, pkcs12, user_id FROM user_certificates"
+            Some(_) => "SELECT id, name, created_on, valid_until, pkcs12, pkcs12_password, user_id FROM user_certificates WHERE user_id = ?1",
+            None => "SELECT id, name, created_on, valid_until, pkcs12, pkcs12_password, user_id FROM user_certificates"
         };
         let mut stmt = self.connection.prepare(query)?;
         let rows = match user_id {
@@ -168,7 +153,8 @@ impl VaulTLSDB {
                     created_on: row.get(2)?,
                     valid_until: row.get(3)?,
                     pkcs12: row.get(4)?,
-                    user_id: row.get(5)?,
+                    pkcs12_password: row.get(5).unwrap_or_default(),
+                    user_id: row.get(6)?,
                     ..Default::default()
                 })
             })
@@ -186,12 +172,23 @@ impl VaulTLSDB {
         )
     }
 
+    /// Retrieve the certificate's PKCS12 data with id from the database
+    /// Returns the id of the user the certificate belongs to and the PKCS12 password
+    pub(crate) fn get_user_cert_pkcs12_password(&self, id: i64) -> Result<(i64, String), rusqlite::Error> {
+        let mut stmt = self.connection.prepare("SELECT user_id, pkcs12_password FROM user_certificates WHERE id = ?1")?;
+        
+        stmt.query_row(
+            params![id],
+            |row| Ok((row.get(0)?, row.get(1).unwrap_or_default())),
+        )
+    }
+
     /// Insert a new certificate into the database
     /// Adds id to Certificate struct
     pub(crate) fn insert_user_cert(&self, cert: &mut Certificate) -> Result<(), rusqlite::Error> {
         self.connection.execute(
-            "INSERT INTO user_certificates (name, created_on, valid_until, pkcs12, ca_id, user_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![cert.name, cert.created_on, cert.valid_until, cert.pkcs12, cert.ca_id, cert.user_id],
+            "INSERT INTO user_certificates (name, created_on, valid_until, pkcs12, pkcs12_password, ca_id, user_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![cert.name, cert.created_on, cert.valid_until, cert.pkcs12, cert.pkcs12_password, cert.ca_id, cert.user_id],
         )?;
         
         cert.id = self.connection.last_insert_rowid();
