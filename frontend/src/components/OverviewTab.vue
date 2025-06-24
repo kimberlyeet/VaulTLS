@@ -207,7 +207,7 @@
 </template>
 
 <script lang="ts">
-import { computed, defineComponent, ref, reactive, onMounted } from 'vue';
+import { computed, defineComponent, onMounted, reactive, ref, watch} from 'vue';
 import { useCertificateStore } from '@/stores/certificates';
 import type { Certificate } from "@/types/Certificate";
 import type { CertificateRequirements } from "@/types/CertificateRequirements";
@@ -232,6 +232,7 @@ export default defineComponent({
     const shownCerts = ref(new Set());
 
     const certificates = computed(() => certificateStore.certificates);
+    const settings = computed(() => settingStore.settings);
     const loading = computed(() => certificateStore.loading);
     const error = computed(() => certificateStore.error);
 
@@ -242,7 +243,7 @@ export default defineComponent({
 
     // Reactive form state for Generate
     const passwordRule = computed(() => {
-      return settingStore.settings.common.password_rule;
+      return settings.value?.common.password_rule ?? PasswordRule.Optional;
     })
     const certReq = reactive<CertificateRequirements>({
       cert_name: '',
@@ -256,21 +257,24 @@ export default defineComponent({
       return authStore.current_user !== null && authStore.current_user.role === UserRole.Admin;
     });
     const isMailValid = computed(() => {
-      return settingStore.settings.mail.smtp_host.length > 0 && settingStore.settings.mail.smtp_port > 0;
+      return (settings.value?.mail.smtp_host.length ?? 0) > 0 && (settings.value?.mail.smtp_port ?? 0) > 0;
     })
+    watch(passwordRule, (newVal) => {
+      certReq.system_generated_password = (newVal === PasswordRule.System);
+    }, { immediate: true });
 
 
     // Fetch certificates when the component is mounted
-    onMounted(() => {
-      certificateStore.fetchCertificates();
-      settingStore.fetchSettings();
+    onMounted(async () => {
+      await certificateStore.fetchCertificates();
+      await settingStore.fetchSettings();
       if (isAdmin.value) {
-        userStore.fetchUsers();
+        await userStore.fetchUsers();
       }
     });
 
-    const showGenerateModal = () => {
-      userStore.fetchUsers();
+    const showGenerateModal = async () => {
+      await userStore.fetchUsers();
       isGenerateModalVisible.value = true;
     };
 

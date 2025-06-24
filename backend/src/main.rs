@@ -448,12 +448,12 @@ async fn rocket() -> _ {
     println!("Trying to use database at {}", DB_FILE_PATH);
     let db_path = Path::new(DB_FILE_PATH);
     let db_initialized = db_path.exists();
-    let db = VaulTLSDB::new(settings.get_db_encrypted()).expect("Failed opening SQLite database.");
+    let db = VaulTLSDB::new(settings.get_db_encrypted()).expect("Failed opening SQLite database");
     if !settings.get_db_encrypted() && env::var("VAULTLS_DB_SECRET").is_ok() {
         settings.set_db_encrypted().await.unwrap()
     }
     if !db_initialized {
-        println!("New database. Set intial database file permissions to 0600");
+        println!("New database. Set initial database file permissions to 0600");
         // Adjust permissions
         let mut perms = fs::metadata(db_path).unwrap().permissions();
         perms.set_mode(0o600);

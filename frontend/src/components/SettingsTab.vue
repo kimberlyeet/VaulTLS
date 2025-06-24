@@ -3,7 +3,7 @@
     <h1>Settings</h1>
     <hr />
     <!-- Application Section -->
-    <div v-if="isAdmin" class="mb-3">
+    <div v-if="isAdmin && settings" class="mb-3">
       <!-- Common Section -->
       <h3>Common</h3>
       <div class="card mt-3 mb-3">
