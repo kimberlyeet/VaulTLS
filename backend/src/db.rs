@@ -163,12 +163,12 @@ impl VaulTLSDB {
 
     /// Retrieve the certificate's PKCS12 data with id from the database
     /// Returns the id of the user the certificate belongs to and the PKCS12 data
-    pub(crate) fn get_user_cert_pkcs12(&self, id: i64) -> Result<(i64, Vec<u8>), rusqlite::Error> {
-        let mut stmt = self.connection.prepare("SELECT user_id, pkcs12 FROM user_certificates WHERE id = ?1")?;
+    pub(crate) fn get_user_cert_pkcs12(&self, id: i64) -> Result<(i64, String, Vec<u8>), rusqlite::Error> {
+        let mut stmt = self.connection.prepare("SELECT user_id, name, pkcs12 FROM user_certificates WHERE id = ?1")?;
 
         stmt.query_row(
             params![id],
-            |row| Ok((row.get(0)?, row.get(1)?)),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )
     }
 

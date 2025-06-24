@@ -145,9 +145,9 @@ async fn download_certificate(
     authentication: Authenticated
 ) -> Result<DownloadResponse, ApiError> {
     let db = state.db.lock().await;
-    let (user_id, pkcs12) = db.get_user_cert_pkcs12(id)?;
+    let (user_id, name, pkcs12) = db.get_user_cert_pkcs12(id)?;
     if user_id != authentication.claims.id && authentication.claims.role != UserRole::Admin { return Err(ApiError::Forbidden(None)) }
-    Ok(DownloadResponse::new(pkcs12, "user_certificate.p12"))
+    Ok(DownloadResponse::new(pkcs12, &format!("{}.p12", name)))
 }
 
 #[get("/api/certificates/<id>/password")]
