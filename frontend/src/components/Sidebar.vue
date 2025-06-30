@@ -1,73 +1,104 @@
 <template>
-  <div class="sidebar shadow-lg rounded-end d-flex flex-column" style="width: 250px;">
-    <ProfileCard />
+  <div>
+    <!-- Always visible toggle button when sidebar is hidden -->
+    <button
+        v-if="!visible"
+        class="sidebar-toggle btn btn-primary d-lg-none"
+        @click="toggleSidebar"
+        :style="{ left: '10px' }"
+    >
+      <i class="bi bi-list"></i>
+    </button>
 
-    <div class="flex-grow-1 overflow-auto mt-4">
-      <ul class="nav flex-column flex-grow-1">
-        <li class="nav-item mb-2">
-          <a
-              href="#"
-              class="nav-link d-flex align-items-center gap-2"
-              :class="{ active: activeRouteName === 'Overview' }"
-              @click.prevent="goToRoute('Overview')"
-          >
-            <i class="bi bi-house-door-fill"></i>
-            Overview
-          </a>
-        </li>
-        <li v-if="isAdmin" class="nav-item mb-2">
-          <a
-              href="#"
-              class="nav-link d-flex align-items-center gap-2"
-              :class="{ active: activeRouteName === 'Users' }"
-              @click.prevent="goToRoute('Users')"
-          >
-            <i class="bi bi-tools"></i>
-            Users
-          </a>
-        </li>
-        <li class="nav-item">
-          <a
-              href="#"
-              class="nav-link d-flex align-items-center gap-2"
-              :class="{ active: activeRouteName === 'Settings' }"
-              @click.prevent="goToRoute('Settings')"
-          >
-            <i class="bi bi-gear-fill"></i>
-            Settings
-          </a>
-        </li>
-      </ul>
-    </div>
-    <div class="p-3">
-      <a
-          href="#"
-          class="nav-link d-flex align-items-center gap-2"
-          @click="handleLogout"
-      >
-        <i class="bi bi-box-arrow-right"></i>
-        Logout
-      </a>
+    <!-- Sidebar Backdrop (Mobile Only) -->
+    <div
+        class="sidebar-backdrop"
+        :class="{ 'd-block': visible && isMobile }"
+        @click="toggleSidebar"
+    ></div>
+
+    <!-- Sidebar Content -->
+    <div
+        class="sidebar shadow-lg rounded-end d-flex flex-column"
+        :class="{ 'sidebar-visible': visible, 'sidebar-hidden': !visible }"
+    >
+      <ProfileCard />
+
+      <div class="flex-grow-1 overflow-auto mt-4">
+        <ul class="nav flex-column flex-grow-1">
+          <li class="nav-item mb-2">
+            <a
+                href="#"
+                class="nav-link d-flex align-items-center gap-2"
+                :class="{ active: activeRouteName === 'Overview' }"
+                @click.prevent="goToRoute('Overview')"
+            >
+              <i class="bi bi-house-door-fill"></i>
+              Overview
+            </a>
+          </li>
+          <li v-if="isAdmin" class="nav-item mb-2">
+            <a
+                href="#"
+                class="nav-link d-flex align-items-center gap-2"
+                :class="{ active: activeRouteName === 'Users' }"
+                @click.prevent="goToRoute('Users')"
+            >
+              <i class="bi bi-tools"></i>
+              Users
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+                href="#"
+                class="nav-link d-flex align-items-center gap-2"
+                :class="{ active: activeRouteName === 'Settings' }"
+                @click.prevent="goToRoute('Settings')"
+            >
+              <i class="bi bi-gear-fill"></i>
+              Settings
+            </a>
+          </li>
+        </ul>
+      </div>
+      <div class="p-3">
+        <a
+            href="#"
+            class="nav-link d-flex align-items-center gap-2"
+            @click="handleLogout"
+        >
+          <i class="bi bi-box-arrow-right"></i>
+          Logout
+        </a>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ProfileCard from './ProfileCard.vue';
 import { UserRole } from "@/types/User.ts";
 import { useAuthStore } from "@/stores/auth.ts";
 
-// Register component (in script setup you still import and then use it in template)
+const props = defineProps({
+  currentTab: String,
+  visible: Boolean
+});
+
+const emit = defineEmits(['change-tab', 'toggle-sidebar']);
+
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
+const isMobile = ref(false);
 
 const activeRouteName = computed(() => route.name);
 const isAdmin = computed(() => authStore.current_user?.role === UserRole.Admin);
 
 const goToRoute = (name: string) => {
+  emit('change-tab', name);
   router.push({ name });
 };
 
@@ -75,6 +106,19 @@ const handleLogout = async () => {
   await authStore.logout();
   goToRoute('Login');
 };
+
+const toggleSidebar = () => {
+  emit('toggle-sidebar');
+};
+
+const checkIfMobile = () => {
+  isMobile.value = window.innerWidth < 992;
+};
+
+onMounted(() => {
+  checkIfMobile();
+  window.addEventListener('resize', checkIfMobile);
+});
 </script>
 
 <style scoped>
@@ -83,23 +127,69 @@ const handleLogout = async () => {
   top: 0;
   left: 0;
   bottom: 0;
+  width: 250px;
   height: 100vh;
   overflow-y: auto;
   z-index: 1000;
   background-color: var(--color-background);
+  transition: transform 0.3s ease;
 }
+
+.sidebar-toggle {
+  position: fixed;
+  bottom: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+}
+
+.sidebar-visible {
+  transform: translateX(0);
+}
+
+.sidebar-hidden {
+  transform: translateX(-100%);
+}
+
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+}
+
+@media (min-width: 992px) {
+  .sidebar {
+    transform: translateX(0) !important;
+  }
+  .sidebar-toggle {
+    display: none !important;
+  }
+}
+
 .nav-link {
   color: #000;
   text-decoration: none;
 }
+
 .nav-link:hover {
   background-color: var(--color-hover);
 }
+
 .nav-link.active {
   font-weight: bold;
   background-color: var(--color-active);
   border-radius: 4px;
 }
+
 button.nav-link {
   background: none;
   cursor: pointer;

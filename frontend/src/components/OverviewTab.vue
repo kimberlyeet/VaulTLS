@@ -42,10 +42,10 @@
               />
             </td>
             <td>
-              <button class="btn btn-primary btn-sm" @click="downloadCertificate(cert.id)">
+              <button class="btn btn-primary btn-sm" style="margin-right: 1%; width: 30%" @click="downloadCertificate(cert.id)">
                 Download
               </button>
-              <button v-if="isAdmin" class="btn btn-danger btn-sm ms-2" @click="confirmDeletion(cert)">
+              <button v-if="isAdmin" class="btn btn-danger btn-sm" style="width: 30%" @click="confirmDeletion(cert)">
                 Delete
               </button>
             </td>

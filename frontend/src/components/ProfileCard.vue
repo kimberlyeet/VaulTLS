@@ -36,7 +36,7 @@ const authStore = useAuthStore();
 <style scoped>
 .card {
   max-width: 300px;
-  margin: auto;
+  margin: 3%;
   background-color: #c4d4dc;
   border: none;
   border-radius: 12px;
