@@ -11,7 +11,7 @@ use openssl::pkcs12::Pkcs12;
 use openssl::pkey::PKey;
 use openssl::stack::Stack;
 use openssl::x509::{X509NameBuilder, X509};
-use openssl::x509::extension::{AuthorityKeyIdentifier, BasicConstraints, KeyUsage, SubjectKeyIdentifier};
+use openssl::x509::extension::{AuthorityKeyIdentifier, BasicConstraints, KeyUsage, SubjectAlternativeName, SubjectKeyIdentifier};
 use openssl::x509::X509Builder;
 use passwords::PasswordGenerator;
 use crate::ApiError;
@@ -109,6 +109,7 @@ pub(crate) fn create_user_cert(
     name: &str,
     validity_in_years: u64,
     user_id: i64,
+    user_email: &str,
     system_generated_password: bool,
     pkcs12_password: &Option<String>
 ) -> Result<Certificate, ErrorStack> {
@@ -153,6 +154,12 @@ pub(crate) fn create_user_cert(
     user_cert_builder.set_not_after(valid_until_openssl.as_ref())?;
     user_cert_builder.append_extension(key_usage)?;
     user_cert_builder.append_extension(basic_constraints)?;
+
+    let san = SubjectAlternativeName::new()
+        .email(user_email)
+        .build(&user_cert_builder.x509v3_context(None, None))?;
+    user_cert_builder.append_extension(san)?;
+    
     user_cert_builder.sign(&ca_key, MessageDigest::sha256())?;
 
     let user_cert = user_cert_builder.build();

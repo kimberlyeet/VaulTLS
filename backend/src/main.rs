@@ -105,7 +105,8 @@ async fn create_user_certificate(
     }
 
     let ca = db.get_current_ca()?;
-    let mut user_cert = cert::create_user_cert(&ca, &payload.cert_name, payload.validity_in_years.unwrap_or(1), payload.user_id, user_password, &payload.pkcs12_password)?;
+    let user = db.get_user(payload.user_id)?;
+    let mut user_cert = cert::create_user_cert(&ca, &payload.cert_name, payload.validity_in_years.unwrap_or(1), payload.user_id, &user.email, user_password, &payload.pkcs12_password)?;
 
     db.insert_user_cert(&mut user_cert)?;
 
