@@ -10,8 +10,8 @@ export const fetchCertificatePassword = async (id: number): Promise<string> => {
     return await ApiClient.get<string>(`/certificates/${id}/password`);
 };
 
-export const downloadCertificate = async (id: number): Promise<{ filename: string; blob: Blob }> => {
-    return await ApiClient.get_download(`/certificates/${id}/download`);
+export const downloadCertificate = async (id: number): Promise<void> => {
+    return await ApiClient.download(`/certificates/${id}/download`);
 };
 
 export const createCertificate = async (certReq: CertificateRequirements): Promise<number> => {
@@ -21,4 +21,8 @@ export const createCertificate = async (certReq: CertificateRequirements): Promi
 
 export const deleteCertificate = async (id: number): Promise<void> => {
     await ApiClient.delete<void>(`/certificates/${id}`);
+};
+
+export const downloadCA = async (): Promise<void> => {
+    return await ApiClient.download('/certificates/ca/download');
 };

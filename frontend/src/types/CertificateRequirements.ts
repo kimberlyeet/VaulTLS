@@ -1,3 +1,5 @@
+import type {CertificateType} from "@/types/Certificate.ts";
+
 export interface CertificateRequirements {
     cert_name: string;
     user_id: number;
@@ -5,4 +7,6 @@ export interface CertificateRequirements {
     system_generated_password: boolean;
     pkcs12_password: string;
     notify_user: boolean;
+    cert_type: CertificateType;
+    dns_names: string[];
 }

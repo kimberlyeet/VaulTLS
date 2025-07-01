@@ -8,6 +8,7 @@
           <tr>
             <th v-if="isAdmin">User</th>
             <th>Name</th>
+            <th>Type</th>
             <th>Created on</th>
             <th>Valid until</th>
             <th>Password</th>
@@ -18,6 +19,7 @@
           <tr v-for="cert in certificates.values()" :key="cert.id">
             <td v-if="isAdmin">{{ userStore.idToName(cert.user_id) }}</td>
             <td>{{ cert.name }}</td>
+            <td>{{ CertificateType[cert.certificate_type] }}</td>
             <td>{{ new Date(cert.created_on).toLocaleDateString() }}</td>
             <td>{{ new Date(cert.valid_until).toLocaleDateString() }}</td>
             <td class="password-cell">
@@ -55,8 +57,15 @@
     </div>
 
     <button
+        class="btn btn-primary mx-1"
+        @click="downloadCA"
+    >
+      Get CA certificate
+    </button>
+
+    <button
         v-if="isAdmin"
-        class="btn btn-primary mb-3"
+        class="btn btn-primary mx-1"
         @click="showGenerateModal"
     >
       Create New Certificate
@@ -80,7 +89,7 @@
           </div>
           <div class="modal-body">
             <div class="mb-3">
-              <label for="certName" class="form-label">Certificate Name</label>
+              <label for="certName" class="form-label">Common Name</label>
               <input
                   id="certName"
                   v-model="certReq.cert_name"
@@ -88,6 +97,45 @@
                   class="form-control"
                   placeholder="Enter certificate name"
               />
+            </div>
+            <div class="mb-3">
+              <label for="certType" class="form-label">Certificate Type</label>
+              <select
+                  class="form-select"
+                  id="certType"
+                  v-model="certReq.cert_type"
+                  required
+              >
+                <option :value="CertificateType.Client">Client</option>
+                <option :value="CertificateType.Server">Server</option>
+              </select>
+            </div>
+            <div class="mb-3" v-if="certReq.cert_type == CertificateType.Server">
+              <label class="form-label">DNS Names</label>
+              <div v-for="(_dns, index) in certReq.dns_names" :key="index" class="input-group mb-2">
+                <input
+                    type="text"
+                    class="form-control"
+                    v-model="certReq.dns_names[index]"
+                    :placeholder="'DNS Name ' + (index + 1)"
+                />
+                <button
+                    v-if="index === certReq.dns_names.length - 1"
+                    type="button"
+                    class="btn btn-outline-secondary"
+                    @click="addDNSField"
+                >
+                  +
+                </button>
+                <button
+                    v-if="certReq.dns_names.length > 1"
+                    type="button"
+                    class="btn btn-outline-danger"
+                    @click="removeDNSField(index)"
+                >
+                  −
+                </button>
+              </div>
             </div>
             <div class="mb-3">
               <label for="userId" class="form-label">User</label>
@@ -206,15 +254,16 @@
   </div>
 </template>
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { useCertificateStore } from '@/stores/certificates';
-import type { Certificate } from "@/types/Certificate";
-import type { CertificateRequirements } from "@/types/CertificateRequirements";
-import { useAuthStore } from "@/stores/auth.ts";
-import { UserRole } from "@/types/User.ts";
-import { useUserStore } from "@/stores/users.ts";
-import { useSettingsStore } from "@/stores/settings.ts";
-import { PasswordRule } from "@/types/Settings.ts";
+import {computed, onMounted, reactive, ref, watch} from 'vue';
+import {useCertificateStore} from '@/stores/certificates';
+import {type Certificate, CertificateType} from "@/types/Certificate";
+import type {CertificateRequirements} from "@/types/CertificateRequirements";
+import {useAuthStore} from "@/stores/auth.ts";
+import {UserRole} from "@/types/User.ts";
+import {useUserStore} from "@/stores/users.ts";
+import {useSettingsStore} from "@/stores/settings.ts";
+import {PasswordRule} from "@/types/Settings.ts";
+import {downloadCA} from "@/api/certificates.ts";
 
 // stores
 const certificateStore = useCertificateStore();
@@ -245,6 +294,8 @@ const certReq = reactive<CertificateRequirements>({
   system_generated_password: passwordRule.value == PasswordRule.System,
   pkcs12_password: '',
   notify_user: false,
+  cert_type: CertificateType.Client,
+  dns_names: ['']
 });
 
 const isAdmin = computed(() => {
@@ -317,6 +368,14 @@ const togglePasswordShown = async (cert: Certificate) => {
   } else {
     shownCerts.value.add(cert.id);
   }
+};
+
+const addDNSField = () => {
+  certReq.dns_names.push('');
+};
+
+const removeDNSField = (index: number) => {
+  certReq.dns_names.splice(index, 1);
 };
 </script>
 

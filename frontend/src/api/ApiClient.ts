@@ -39,9 +39,9 @@ class ApiClient {
         }
     }
 
-    async get_download(url: string, params: Record<string, any> = {}): Promise<{ filename: string, blob: Blob }> {
+    async download(url: string, params: Record<string, any> = {}): Promise<void> {
         try {
-            const response = await this.client.get(url, {
+            const response: AxiosResponse<BlobPart> = await this.client.get(url, {
                 params,
                 responseType: 'blob',
             });
@@ -56,7 +56,14 @@ class ApiClient {
             }
 
             const blob = new Blob([response.data]);
-            return { filename, blob };
+            const blobUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(blobUrl);
         } catch (error) {
             console.error(`GET ${url} download failed:`, error);
             throw error;

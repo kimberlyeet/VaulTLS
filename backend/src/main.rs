@@ -18,8 +18,8 @@ use cert::create_ca;
 use db::VaulTLSDB;
 use settings::Settings;
 use crate::cert::{get_pem, save_ca, Certificate};
-use crate::data::api::{CallbackQuery, ChangePasswordRequest, CreateCertificateRequest, CreateUserRequest, DownloadResponse, IsSetupResponse, LoginRequest, SetupRequest};
-use crate::data::enums::UserRole;
+use crate::data::api::{CallbackQuery, ChangePasswordRequest, CreateUserCertificateRequest, CreateUserRequest, DownloadResponse, IsSetupResponse, LoginRequest, SetupRequest};
+use crate::data::enums::{CertificateType, UserRole};
 use crate::data::error::ApiError;
 use crate::data::enums::PasswordRule;
 use crate::helper::{hash_password, hash_password_string};
@@ -82,7 +82,7 @@ async fn get_certificates(
 #[post("/api/certificates", format = "json", data = "<payload>")]
 async fn create_user_certificate(
     state: &State<AppState>,
-    payload: Json<CreateCertificateRequest>,
+    payload: Json<CreateUserCertificateRequest>,
     authentication: Authenticated
 ) -> Result<Json<Certificate>, ApiError> {
     let settings = state.settings.lock().await;
@@ -105,10 +105,21 @@ async fn create_user_certificate(
     }
 
     let ca = db.get_current_ca()?;
-    let user = db.get_user(payload.user_id)?;
-    let mut user_cert = cert::create_user_cert(&ca, &payload.cert_name, payload.validity_in_years.unwrap_or(1), payload.user_id, &user.email, user_password, &payload.pkcs12_password)?;
+    let mut cert = match payload.cert_type.unwrap_or_default() {
+        CertificateType::Client => {
+            let user = db.get_user(payload.user_id)?;
+            cert::create_user_cert(&ca, &payload.cert_name, payload.validity_in_years.unwrap_or(1), payload.user_id, &user.email, user_password, &payload.pkcs12_password)?
+        }
+        CertificateType::Server => {
+            cert::create_server_cert(&ca, &payload.cert_name, &payload.dns_names.clone().unwrap_or_default(), payload.validity_in_years.unwrap_or(1), user_password, &payload.pkcs12_password, payload.user_id)?
+        }
+        CertificateType::CA => {
+            return Err(ApiError::BadRequest("Cannot create CA certificate".to_string()))
+        }
+    };
 
-    db.insert_user_cert(&mut user_cert)?;
+
+    db.insert_user_cert(&mut cert)?;
 
     if Some(true) == payload.notify_user {
         let user = db.get_user(payload.user_id)?;
@@ -116,7 +127,7 @@ async fn create_user_certificate(
             to: format!("{} <{}>", user.name, user.email),
             subject: "VaulTLS: A new certificate is available".to_string(),
             username: user.name,
-            certificate: user_cert.clone()
+            certificate: cert.clone()
         };
 
         let mailer = state.mailer.clone();
@@ -127,7 +138,7 @@ async fn create_user_certificate(
         });
     }
 
-    Ok(Json(user_cert))
+    Ok(Json(cert))
 }
 
 #[get("/api/certificates/ca/download")]

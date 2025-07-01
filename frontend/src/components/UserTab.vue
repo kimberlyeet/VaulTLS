@@ -26,7 +26,7 @@
           <tr v-for="user in userStore.users" :key="user.id">
             <td>{{ user.name }}</td>
             <td>{{ user.email }}</td>
-            <td>{{ user.role }}</td>
+            <td>{{ UserRole[user.role] }}</td>
             <td>
               <button 
                 class="btn btn-danger btn-sm"
