@@ -3,7 +3,7 @@ use rocket::{Request, Response};
 use rocket::http::{ContentType, Header, Status};
 use rocket::response::Responder;
 use rocket::serde::{Deserialize, Serialize};
-use crate::data::enums::UserRole;
+use crate::data::enums::{CertificateType, UserRole};
 
 #[derive(Serialize)]
 pub struct IsSetupResponse {
@@ -45,13 +45,15 @@ pub struct CallbackQuery {
 }
 
 #[derive(Deserialize)]
-pub struct CreateCertificateRequest {
+pub struct CreateUserCertificateRequest {
     pub cert_name: String,
-    pub user_id: i64,
     pub validity_in_years: Option<u64>,
+    pub user_id: i64,
     pub notify_user: Option<bool>,
     pub system_generated_password: bool,
     pub pkcs12_password: Option<String>,
+    pub cert_type: Option<CertificateType>,
+    pub dns_names: Option<Vec<String>>,
 }
 
 pub struct DownloadResponse {

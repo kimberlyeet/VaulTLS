@@ -39,3 +39,25 @@ pub(crate) enum PasswordRule {
     Required = 1,
     System = 2
 }
+
+#[derive(Serialize_repr, Deserialize_repr, TryFromPrimitive, Clone, Debug, Copy, PartialEq, Eq, Default)]
+#[repr(u8)]
+pub(crate) enum CertificateType {
+    #[default]
+    Client = 0,
+    Server = 1,
+    CA = 2
+}
+
+impl FromSql for CertificateType {
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
+        match value {
+            ValueRef::Integer(i) => {
+                let value = i as u8;
+                CertificateType::try_from(value)
+                    .map_err(|_| FromSqlError::InvalidType)
+            },
+            _ => Err(FromSqlError::InvalidType),
+        }
+    }
+}

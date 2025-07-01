@@ -1,7 +1,7 @@
 ![VaulTLS Logo](https://github.com/7ritn/VaulTLS/blob/main/assets/logoText.png)
 
 VaulTLS is a modern solution for managing mTLS (mutual TLS) certificates with ease.
-It provides a centralized platform for generating, managing, and distributing client TLS certificates for your home lab.
+It provides a centralized platform for generating, managing, and distributing client (and server) TLS certificates for your home lab.
 
 The main reason why I developed VaulTLS was that I didn't like messing with shell scripts and OpenSSL.
 I also did not have an overview about the expiration of individual certificates.
@@ -87,6 +87,17 @@ By default, PKCS12 passwords are optional and certificates will be generated wit
 
 Passwords are stored in the database and retrieved from the web interface only when the user clicks on view password.
 
+### Server Certificates
+Since version v0.7.0 VaulTLS also has support for server certificates.
+The user flow remains quite similar with the difference that SAN DNS entries can be specified.
+Download is also using a possibly password-protected PKCS#12 file.
+Since most reverse proxies require the certificate and private key to be supplied separately, the p12 may need to be split.
+This can be done, for example, with openssl:
+```sh
+openssl pkcs12 -in INFILE.p12 -out OUTFILE.crt -nokeys
+openssl pkcs12 -in INFILE.p12 -out OUTFILE.key -nodes -nocerts
+```
+
 ### Caddy
 To use caddy as reverse proxy for the VaulTLS app, a configuration like the following is required.
 ```caddyfile
@@ -127,9 +138,8 @@ abort @blocked
 ```
 
 ## Roadmap
-- Add database encryption
 - Hash passwords in Frontend
 - Allow user details to be updated
 - Generate new certificates automatically if the old one expires soon
 - Add testing
-- Add / improve logging
+- Improve logging

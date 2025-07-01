@@ -138,8 +138,8 @@ impl VaulTLSDB {
     /// If user_id is None, all certificates are returned
     pub(crate) fn get_all_user_cert(&self, user_id: Option<i64>) -> Result<Vec<Certificate>, rusqlite::Error>{
         let query = match user_id {
-            Some(_) => "SELECT id, name, created_on, valid_until, pkcs12, pkcs12_password, user_id FROM user_certificates WHERE user_id = ?1",
-            None => "SELECT id, name, created_on, valid_until, pkcs12, pkcs12_password, user_id FROM user_certificates"
+            Some(_) => "SELECT id, name, created_on, valid_until, pkcs12, pkcs12_password, user_id, type FROM user_certificates WHERE user_id = ?1",
+            None => "SELECT id, name, created_on, valid_until, pkcs12, pkcs12_password, user_id, type FROM user_certificates"
         };
         let mut stmt = self.connection.prepare(query)?;
         let rows = match user_id {
@@ -155,6 +155,7 @@ impl VaulTLSDB {
                     pkcs12: row.get(4)?,
                     pkcs12_password: row.get(5).unwrap_or_default(),
                     user_id: row.get(6)?,
+                    certificate_type: row.get(7)?,
                     ..Default::default()
                 })
             })
@@ -187,8 +188,8 @@ impl VaulTLSDB {
     /// Adds id to Certificate struct
     pub(crate) fn insert_user_cert(&self, cert: &mut Certificate) -> Result<(), rusqlite::Error> {
         self.connection.execute(
-            "INSERT INTO user_certificates (name, created_on, valid_until, pkcs12, pkcs12_password, ca_id, user_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            params![cert.name, cert.created_on, cert.valid_until, cert.pkcs12, cert.pkcs12_password, cert.ca_id, cert.user_id],
+            "INSERT INTO user_certificates (name, created_on, valid_until, pkcs12, pkcs12_password, type, ca_id, user_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![cert.name, cert.created_on, cert.valid_until, cert.pkcs12, cert.pkcs12_password, cert.certificate_type as u8, cert.ca_id, cert.user_id],
         )?;
         
         cert.id = self.connection.last_insert_rowid();
