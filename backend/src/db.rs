@@ -1,4 +1,4 @@
-use std::{env, fs};
+use std::fs;
 use std::path::Path;
 use rusqlite::fallible_iterator::FallibleIterator;
 use std::str::FromStr;
@@ -10,6 +10,7 @@ use rusqlite_migration::Migrations;
 use crate::{ApiError, Certificate, User};
 use crate::constants::{DB_FILE_PATH, TEMP_DB_FILE_PATH};
 use crate::data::enums::UserRole;
+use crate::helper::get_secret;
 
 static MIGRATIONS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/migrations");
 
@@ -24,7 +25,7 @@ impl VaulTLSDB {
         let db_initialized = db_path.exists();
 
         let mut connection = Connection::open(DB_FILE_PATH)?;
-        let db_secret = env::var("VAULTLS_DB_SECRET");
+        let db_secret = get_secret("VAULTLS_DB_SECRET");
         if db_encrypted {
             if let Ok(ref db_secret) = db_secret {
                 connection.pragma_update(None, "key", db_secret)?;
