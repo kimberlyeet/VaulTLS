@@ -33,7 +33,6 @@
                 :class="{ active: activeRouteName === 'Overview' }"
                 @click.prevent="goToRoute('Overview')"
             >
-              <i class="bi bi-house-door-fill"></i>
               Overview
             </a>
           </li>
@@ -44,7 +43,6 @@
                 :class="{ active: activeRouteName === 'Users' }"
                 @click.prevent="goToRoute('Users')"
             >
-              <i class="bi bi-tools"></i>
               Users
             </a>
           </li>
@@ -55,7 +53,6 @@
                 :class="{ active: activeRouteName === 'Settings' }"
                 @click.prevent="goToRoute('Settings')"
             >
-              <i class="bi bi-gear-fill"></i>
               Settings
             </a>
           </li>
@@ -67,9 +64,11 @@
             class="nav-link d-flex align-items-center gap-2"
             @click="handleLogout"
         >
-          <i class="bi bi-box-arrow-right"></i>
           Logout
         </a>
+      </div>
+      <div class="text-center text-muted small p-2">
+        {{ "Version: " + settingsStore.version }}
       </div>
     </div>
   </div>
@@ -81,17 +80,17 @@ import { useRoute, useRouter } from 'vue-router';
 import ProfileCard from './ProfileCard.vue';
 import { UserRole } from "@/types/User.ts";
 import { useAuthStore } from "@/stores/auth.ts";
-
-const props = defineProps({
+import {useSettingsStore} from "@/stores/settings.ts";
+defineProps({
   currentTab: String,
   visible: Boolean
 });
-
 const emit = defineEmits(['change-tab', 'toggle-sidebar']);
 
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
+const settingsStore = useSettingsStore();
 const isMobile = ref(false);
 
 const activeRouteName = computed(() => route.name);
@@ -115,9 +114,10 @@ const checkIfMobile = () => {
   isMobile.value = window.innerWidth < 992;
 };
 
-onMounted(() => {
+onMounted(async () => {
   checkIfMobile();
   window.addEventListener('resize', checkIfMobile);
+  await settingsStore.fetchVersion();
 });
 </script>
 

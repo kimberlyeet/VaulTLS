@@ -8,8 +8,8 @@
           <tr>
             <th v-if="isAdmin">User</th>
             <th>Name</th>
-            <th>Type</th>
-            <th>Created on</th>
+            <th class="d-none d-sm-table-cell">Type</th>
+            <th class="d-none d-sm-table-cell">Created on</th>
             <th>Valid until</th>
             <th>Password</th>
             <th>Actions</th>
@@ -19,37 +19,48 @@
           <tr v-for="cert in certificates.values()" :key="cert.id">
             <td v-if="isAdmin">{{ userStore.idToName(cert.user_id) }}</td>
             <td>{{ cert.name }}</td>
-            <td>{{ CertificateType[cert.certificate_type] }}</td>
-            <td>{{ new Date(cert.created_on).toLocaleDateString() }}</td>
+            <td class="d-none d-sm-table-cell">{{ CertificateType[cert.certificate_type] }}</td>
+            <td class="d-none d-sm-table-cell">{{ new Date(cert.created_on).toLocaleDateString() }}</td>
             <td>{{ new Date(cert.valid_until).toLocaleDateString() }}</td>
             <td class="password-cell">
-              <template v-if="shownCerts.has(cert.id)">
-                <input
-                    type="text"
-                    :value="cert.pkcs12_password"
-                    readonly
-                    class="input-container form-control form-control-sm me-2"
-                    style="font-family: monospace;"
-                    @mousedown="(e) => (e.target as HTMLInputElement).select()"
+              <div class="d-flex align-items-center">
+                <template v-if="shownCerts.has(cert.id)">
+                  <input
+                      type="text"
+                      :value="cert.pkcs12_password"
+                      readonly
+                      class="form-control form-control-sm me-2"
+                      style="font-family: monospace; max-width: 100px;"
+                  />
+                </template>
+                <template v-else>
+                  <span>•••••••</span>
+                </template>
+                <img
+                    :src="shownCerts.has(cert.id) ? '/images/eye-open.png' : '/images/eye-hidden.png'"
+                    class="ms-2"
+                    style="width: 20px; cursor: pointer;"
+                    @click="togglePasswordShown(cert)"
+                    alt="Button to show / hide password"
                 />
-              </template>
-              <template v-else>
-                <span style="display: inline-block;">•••••••</span>
-              </template>
-              <img
-                  :src="shownCerts.has(cert.id) ?  '/images/eye-open.png' : '/images/eye-hidden.png'"
-                  alt="Logo"
-                  class="eye-icon d-block mx-auto mb-4"
-                  @click="togglePasswordShown(cert)"
-              />
+              </div>
             </td>
             <td>
-              <button class="btn btn-primary btn-sm" style="margin-right: 1%; width: 30%" @click="downloadCertificate(cert.id)">
-                Download
-              </button>
-              <button v-if="isAdmin" class="btn btn-danger btn-sm" style="width: 30%" @click="confirmDeletion(cert)">
-                Delete
-              </button>
+              <div class="d-flex flex-sm-row flex-column gap-1">
+                <button
+                    class="btn btn-primary btn-sm flex-grow-1"
+                    @click="downloadCertificate(cert.id)"
+                >
+                  Download
+                </button>
+                <button
+                    v-if="isAdmin"
+                    class="btn btn-danger btn-sm flex-grow-1"
+                    @click="confirmDeletion(cert)"
+                >
+                  Delete
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -391,25 +402,5 @@ const removeDNSField = (index: number) => {
 /* When multiple modals are present, we want to stack them properly */
 .modal + .modal {
   z-index: 1051;
-}
-
-.password-cell {
-  width: 250px;
-  position: relative; 
-  padding-right: 25px;
-}
-
-.input-container {
-  width: 200px;
-  padding-right: 25px; 
-}
-
-.password-cell .eye-icon {
-  position: absolute;
-  cursor: pointer;
-  right: 5px; 
-  top: 50%; 
-  transform: translateY(-50%);
-  width: 25px; 
 }
 </style>

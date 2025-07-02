@@ -9,7 +9,7 @@
     />
 
     <!-- Main Content -->
-    <div class="container mt-4 flex-grow-1" :class="{ 'content-shifted': sidebarVisible }">
+    <div class="container-fluid mt-4 flex-grow-1" :class="{ 'content-shifted': sidebarVisible }">
       <router-view />
     </div>
   </div>
@@ -43,7 +43,7 @@ watch(() => window.innerWidth, (width) => {
 </script>
 
 <style scoped>
-.container {
+.container-fluid {
   margin-left: 250px;
   transition: margin-left 0.3s ease;
 }
@@ -53,8 +53,15 @@ watch(() => window.innerWidth, (width) => {
 }
 
 @media (max-width: 991.98px) {
-  .container {
+  .container-fluid {
     margin-left: 0;
   }
 }
+
+@media (min-width: 992px) {
+  .container-fluid {
+    max-width: 70%;
+  }
+}
+
 </style>

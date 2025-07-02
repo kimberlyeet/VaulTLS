@@ -64,6 +64,11 @@ fn index() -> &'static str {
     "<h1>mTLS Certificates API</h1>"
 }
 
+#[get("/api/server/version")]
+fn version() -> &'static str {
+    VAULTLS_VERSION
+}
+
 #[get("/api/certificates")]
 async fn get_certificates(
     state: &State<AppState>,
@@ -519,6 +524,7 @@ async fn rocket() -> _ {
             "/",
             routes![
                 index,
+                version,
                 get_certificates,
                 create_user_certificate,
                 download_ca,
