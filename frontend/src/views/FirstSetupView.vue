@@ -55,7 +55,7 @@
 
         <!-- Password field is always available, but not required if OIDC is enabled -->
         <div class="mb-3">
-          <label for="password" class="form-label">Password (Optional)</label>
+          <label for="password" class="form-label">Password</label>
           <input
               id="password"
               type="password"
