@@ -123,7 +123,7 @@
             </div>
             <div class="mb-3" v-if="certReq.cert_type == CertificateType.Server">
               <label class="form-label">DNS Names</label>
-              <div v-for="(_dns, index) in certReq.dns_names" :key="index" class="input-group mb-2">
+              <div v-for="(_, index) in certReq.dns_names" :key="index" class="input-group mb-2">
                 <input
                     type="text"
                     class="form-control"

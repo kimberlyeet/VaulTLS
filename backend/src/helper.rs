@@ -1,4 +1,5 @@
 use std::{env, fs};
+use std::path::Path;
 use argon2::{Argon2, PasswordHasher};
 use argon2::password_hash::rand_core::OsRng;
 use argon2::password_hash::{PasswordHashString, SaltString};
@@ -37,15 +38,17 @@ where
 
 /// Get secret
 pub fn get_secret(name: &str) -> anyhow::Result<String> {
-    let val = env::var(name)?;
-
-    // If the var starts with "/run/secrets/", treat it as a file path
-    Ok(if val.starts_with("/run/secrets/") {
-        fs::read_to_string(val)
-            .unwrap_or_default()
-            .trim()
-            .to_string()
+    if let Ok(env_var) = env::var(name) {
+        Ok(if Path::new(&env_var).exists() {
+            fs::read_to_string(env_var)
+                .unwrap_or_default()
+                .trim()
+                .to_string()
+        } else {
+            env_var
+        })
     } else {
-        val
-    })
+        Ok(fs::read_to_string("/run/secrets/".to_string() + name)?)
+    }
+
 }
