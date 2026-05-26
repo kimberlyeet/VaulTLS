@@ -13,7 +13,7 @@ use openssl::nid::Nid;
 use openssl::pkcs12::Pkcs12;
 use openssl::pkey::{PKey, Private};
 use openssl::stack::Stack;
-use openssl::x509::{X509Name, X509NameBuilder, X509Ref, X509};
+use openssl::x509::{X509Name, X509NameBuilder, X509Ref, X509, X509Extension};
 use openssl::x509::extension::{AuthorityKeyIdentifier, BasicConstraints, ExtendedKeyUsage, KeyUsage, SubjectAlternativeName, SubjectKeyIdentifier};
 use openssl::x509::{X509Builder};
 use openssl::x509::X509Req;
@@ -41,7 +41,8 @@ pub struct TLSCertificateBuilder {
     pkcs12_password: String,
     ca: Option<(i64, X509, PKey<Private>)>,
     user_id: Option<i64>,
-    renew_method: CertificateRenewMethod
+    renew_method: CertificateRenewMethod,
+    vaultls_url: Option<String>,
 }
 impl TLSCertificateBuilder {
     pub fn new() -> Result<Self> {
@@ -64,7 +65,8 @@ impl TLSCertificateBuilder {
             pkcs12_password: String::new(),
             ca: None,
             user_id: None,
-            renew_method: Default::default()
+            renew_method: Default::default(),
+            vaultls_url: None,
         })
     }
 
@@ -162,6 +164,11 @@ impl TLSCertificateBuilder {
         Ok(self)
     }
 
+    pub fn set_vaultls_url(mut self, vaultls_url: String) -> Result<Self, anyhow::Error> {
+        self.vaultls_url = Some(vaultls_url);
+        Ok(self)
+    }
+
     pub fn build_ca(mut self) -> Result<CA, anyhow::Error> {
         let name = self.name.ok_or(anyhow!("X509: name not set"))?;
         let valid_until = self.valid_until.ok_or(anyhow!("X509: valid_until not set"))?;
@@ -241,6 +248,13 @@ impl TLSCertificateBuilder {
         let authority_key_identifier = AuthorityKeyIdentifier::new().keyid(true).build(&self.x509.x509v3_context(Some(&ca_cert), None))?;
         self.x509.append_extension(authority_key_identifier)?;
 
+        // Add CRL Distribution Points if vaultls_url is set
+        if let Some(vaultls_url) = &self.vaultls_url {
+            let crl_url = format!("{}/api/certificates/ca/{}/crl", vaultls_url.trim_end_matches('/'), ca_id);
+            let crl_dp = create_crl_distribution_points(&crl_url)?;
+            self.x509.append_extension(crl_dp)?;
+        }
+
         self.x509.sign(&ca_key, MessageDigest::sha256())?;
         let cert = self.x509.build();
 
@@ -277,6 +291,7 @@ pub fn issue_cert_from_csr(
     ca: &CA,
     validity_days: u64,
     dns_names: &[String],
+    vaultls_url: &Option<String>,
 ) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>)> {
     let csr = X509Req::from_der(csr_der)?;
     let csr_pubkey = csr.public_key()?;
@@ -333,6 +348,13 @@ pub fn issue_cert_from_csr(
     let authority_key_identifier = AuthorityKeyIdentifier::new().keyid(true).build(&x509.x509v3_context(Some(&ca_cert), None))?;
     x509.append_extension(authority_key_identifier)?;
 
+    // Add CRL Distribution Points if vaultls_url is set
+    if let Some(vaultls_url_val) = vaultls_url {
+        let crl_url = format!("{}/api/certificates/ca/{}/crl", vaultls_url_val.trim_end_matches('/'), ca.id);
+        let crl_dp = create_crl_distribution_points(&crl_url)?;
+        x509.append_extension(crl_dp)?;
+    }
+
     x509.sign(&ca_key, MessageDigest::sha256())?;
     
     let cert = x509.build();
@@ -353,6 +375,61 @@ fn generate_private_key() -> Result<PKey<Private>, ErrorStack> {
     let ec_key = EcKey::generate(&group)?;
     let server_key = PKey::from_ec_key(ec_key)?;
     Ok(server_key)
+}
+
+/// Creates a CRL Distribution Points extension with the given URL.
+fn create_crl_distribution_points(crl_url: &str) -> Result<X509Extension, ErrorStack> {
+    let crl_dp_value = format!("URI:{}", crl_url);
+    X509Extension::new(None, None, "crlDistributionPoints", &crl_dp_value)
+}
+
+/// Re-signs a CA certificate with CRL Distribution Points extension.
+/// This is used to add CRL DP to a CA after it has been inserted into the database.
+pub(crate) fn add_crl_distribution_point_to_ca(ca: &mut CA, vaultls_url: &str) -> Result<()> {
+    let ca_cert = X509::from_der(&ca.cert)?;
+    let ca_key = PKey::private_key_from_der(&ca.key)?;
+
+    let mut x509_builder = X509Builder::new()?;
+    
+    x509_builder.set_version(ca_cert.version())?;
+    x509_builder.set_serial_number(ca_cert.serial_number())?;
+    x509_builder.set_not_before(ca_cert.not_before())?;
+    x509_builder.set_not_after(ca_cert.not_after())?;
+    x509_builder.set_subject_name(ca_cert.subject_name())?;
+    x509_builder.set_issuer_name(ca_cert.issuer_name())?;
+    
+    let pubkey = ca_cert.public_key()?;
+    x509_builder.set_pubkey(&pubkey)?;
+
+    // Explicitly reconstruct the required CA extensions
+    let basic_constraints = BasicConstraints::new().critical().ca().build()?;
+    x509_builder.append_extension(basic_constraints)?;
+
+    let key_usage = KeyUsage::new()
+        .key_cert_sign()
+        .crl_sign()
+        .build()?;
+    x509_builder.append_extension(key_usage)?;
+
+    let subject_key_identifier = SubjectKeyIdentifier::new().build(&x509_builder.x509v3_context(None, None))?;
+    x509_builder.append_extension(subject_key_identifier)?;
+    
+    let authority_key_identifier = AuthorityKeyIdentifier::new().keyid(true).build(&x509_builder.x509v3_context(None, None))?;
+    x509_builder.append_extension(authority_key_identifier)?;
+
+    // Add the new CRL Distribution Points extension
+    let crl_url = format!("{}/api/certificates/ca/{}/crl", vaultls_url.trim_end_matches('/'), ca.id);
+    let crl_dp = create_crl_distribution_points(&crl_url)?;
+    x509_builder.append_extension(crl_dp)?;
+
+    // Re-sign the certificate
+    x509_builder.sign(&ca_key, MessageDigest::sha256())?;
+    let new_cert = x509_builder.build();
+
+    // Update the CA with the new certificate
+    ca.cert = new_cert.to_der()?;
+
+    Ok(())
 }
 
 fn create_cn(name: &Name) -> Result<X509Name, ErrorStack> {

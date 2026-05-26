@@ -94,6 +94,16 @@ pub(crate) async fn setup(
         .set_valid_until(cert_validity, cert_validity_unit)?
         .build_ca()?;
     ca = state.db.insert_ca(ca).await?;
+    
+    let vaultls_url = state.settings.get_vaultls_url();
+    if !vaultls_url.is_empty() {
+        if let Err(e) = crate::certs::tls_cert::add_crl_distribution_point_to_ca(&mut ca, &vaultls_url) {
+            warn!("Failed to add CRL Distribution Points to CA: {:?}", e);
+        } else {
+            state.db.update_ca(&ca).await.ok();
+        }
+    }
+    
     save_ca(&ca)?;
 
     info!("VaulTLS was successfully set up.");
@@ -367,6 +377,20 @@ pub(crate) async fn create_ca(
     };
 
     ca = state.db.insert_ca(ca).await?;
+    
+    if ca.ca_type == CAType::TLS {
+        let vaultls_url = state.settings.get_vaultls_url();
+        if !vaultls_url.is_empty() {
+            let mut ca_with_crl = ca.clone();
+            if let Err(e) = crate::certs::tls_cert::add_crl_distribution_point_to_ca(&mut ca_with_crl, &vaultls_url) {
+                warn!("Failed to add CRL Distribution Points to CA: {:?}", e);
+            } else {
+                state.db.update_ca(&ca_with_crl).await.ok();
+                ca = ca_with_crl;
+            }
+        }
+    }
+    
     save_ca(&ca)?;
     Ok(Json(ca.id))
 }
@@ -511,13 +535,15 @@ async fn build_tls_cert(
     state: &State<AppState>,
     is_client: bool,
 ) -> Result<Certificate, ApiError> {
+    let vaultls_url = state.settings.get_vaultls_url();
     let mut cert_builder = TLSCertificateBuilder::new()?
         .set_name(payload.cert_name.clone())?
         .set_valid_until(validity_duration, validity_unit)?
         .set_renew_method(payload.renew_method.unwrap_or_default())?
         .set_password(pkcs12_password)?
         .set_ca(ca)?
-        .set_user_id(payload.user_id)?;
+        .set_user_id(payload.user_id)?
+        .set_vaultls_url(vaultls_url)?;
 
     if is_client {
         let user = state.db.get_user(payload.user_id).await?;

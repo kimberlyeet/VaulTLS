@@ -590,7 +590,10 @@ pub(crate) async fn finalize_order(
     let cert_name = dns_names.first().map(|s| s.as_str()).unwrap_or("acme");
     let cert_common_name = Name { cn: cert_name.to_string(), ou: Some("ACME".to_string()) };
 
-    let (_cert_pem, chain_pem, serial) = match issue_cert_from_csr(&csr_der, &ca, validity_days, &dns_names) {
+    let vaultls_url = state.settings.get_vaultls_url();
+    let vaultls_url_opt = if vaultls_url.is_empty() { None } else { Some(vaultls_url) };
+
+    let (_cert_pem, chain_pem, serial) = match issue_cert_from_csr(&csr_der, &ca, validity_days, &dns_names, &vaultls_url_opt) {
         Ok(result) => result,
         Err(e) => {
             error!("Certificate issuance failed for order {id}: {e}");
